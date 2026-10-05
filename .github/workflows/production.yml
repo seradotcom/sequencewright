@@ -19,7 +19,7 @@ env:
 jobs:
   native-pixels:
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -51,7 +51,9 @@ jobs:
       - name: Native build prerequisites on the disposable runner
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends -y libpipewire-0.3-dev pkg-config clang
+          sudo apt-get install --no-install-recommends -y libpipewire-0.3-dev pkg-config clang melt ffmpeg
+          melt -version | head -5
+          ffmpeg -version | head -3
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: '22.22.0'
@@ -74,6 +76,7 @@ jobs:
           cargo build --locked --manifest-path native/Cargo.toml --bins
           cargo build --locked --manifest-path upstream/Cargo.toml -p semwright-daemon -p semwright-cli --bins
           cargo build --locked --manifest-path upstream/Cargo.toml -p semwright-plugin-host --bin semwright-sandbox -p semwright-driver-motion-canvas --bin semwright-motion-canvas-driver
+          cargo build --locked --manifest-path upstream/Cargo.toml -p semwright-mlt-video-driver --bin semwright-mlt-video-driver --bin semwright-mlt-runtime-runner
       - name: Three real SDK-authored sequences through canonical native rendering
         run: python3 tests/host/render_e2e.py
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

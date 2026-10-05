@@ -7,7 +7,10 @@ import {NativeError,sameVersion} from '../vendor/semwright-native-sdk/index.mjs'
 import {closed,integer,need,str} from './contracts.mjs';
 import {duration} from './model.mjs';
 import {toFilm} from './projection.mjs';
-const COMMANDS=new Set(['doctor','composition.inspect','composition.plan','composition.apply','composition.verify','render.plan','render.start','render.status','render.cancel','render.result'].map(name=>'driver.motion-canvas.'+name));
+const MOTION_COMMANDS=['doctor','composition.inspect','composition.plan','composition.apply','composition.verify','render.plan','render.start','render.status','render.cancel','render.result'].map(name=>'driver.motion-canvas.'+name);
+const MLT_COMMANDS=['frames.encode','sync.probe','av.mux'].map(name=>'driver.mlt-video.'+name);
+const COMMAND_PROVIDER=new Map([...MOTION_COMMANDS.map(command=>[command,'driver:motion-canvas']),...MLT_COMMANDS.map(command=>[command,'driver:mlt-video'])]);
+const COMMANDS=new Set(COMMAND_PROVIDER.keys());
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const MAX_OUTPUT=1048576;
 
@@ -40,7 +43,8 @@ export class CanonicalConnection{
    const child=spawn(c.executable,['--socket',c.socket,'--session-file',c.session,'--json','execute',command,'--args-json',encoded],{shell:false,stdio:['ignore','pipe','pipe'],env:{HOME:process.env.HOME??dirname(c.session),PATH:'/usr/bin:/bin',LANG:'C.UTF-8'}});
    let output=[],size=0,stderrSize=0,ended=false;
    const fail=message=>{if(ended)return;ended=true;clearTimeout(timer);child.kill('SIGKILL');reject(new NativeError('BackendFailed',message,!mutation));};
-   const timer=setTimeout(()=>fail('Canonical CLI deadline exceeded. Mutation outcome is unknown; do not automatically resubmit.'),45000);
+   const deadlineMs=command.startsWith('driver.mlt-video.')?330000:45000;
+   const timer=setTimeout(()=>fail('Canonical CLI deadline exceeded. Mutation outcome is unknown; do not automatically resubmit.'),deadlineMs);
    child.stdout.on('data',chunk=>{size+=chunk.length;if(size>MAX_OUTPUT)fail('Canonical CLI output exceeded its response budget');else output.push(chunk);});
    child.stderr.on('data',chunk=>{stderrSize+=chunk.length;if(stderrSize>MAX_OUTPUT)fail('Canonical CLI diagnostic budget exceeded');});
    child.on('error',()=>fail('The owner-selected canonical CLI could not be started'));
@@ -49,8 +53,8 @@ export class CanonicalConnection{
     try{
      const value=JSON.parse(Buffer.concat(output).toString('utf8'));
      if(code!==0||value.ok!==true){const error=value.error??{};throw new NativeError(error.code??'BackendFailed',String(error.message??'Canonical command was not completed'),error.outcome_known??!mutation);}
-     const provenance=value.execution?.provenance;
-     need(provenance?.provider==='driver:motion-canvas'&&provenance.source==='driver'&&typeof provenance.descriptor_sha256==='string'&&provenance.provider_generation!==null&&provenance.provider_generation!==undefined,'Canonical provider provenance is missing','BackendFailed');
+     const provenance=value.execution?.provenance;const expectedProvider=COMMAND_PROVIDER.get(command);
+     need(provenance?.provider===expectedProvider&&provenance.source==='driver'&&typeof provenance.descriptor_sha256==='string'&&provenance.provider_generation!==null&&provenance.provider_generation!==undefined,'Canonical provider provenance is missing or belongs to the wrong driver','BackendFailed');
      resolve({data:value.data,execution:value.execution});
     }catch(error){reject(error instanceof NativeError?error:new NativeError('BackendFailed','Canonical CLI response could not be validated',!mutation));}
    });

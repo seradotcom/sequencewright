@@ -35,11 +35,36 @@ def prepare_motion(fixture,resource):
         'interfaces':{'cooperative_cancellation':True,'progress':True,'artifacts':True,'health':True,'host_tools':True},
     }
     path=fixture.paths['config']/'motion-driver.json';path.write_text(json.dumps(manifest,indent=2));path.chmod(0o600)
+
+    # The same verified Motion Canvas output root is exposed read-only as MLT media
+    # and writable as the MLT output root. No application or source file is copied.
+    scratch=fixture.root/'mlt-scratch';scratch.mkdir(mode=0o700)
+    mlt_driver=fixture.paths['binary']/'mlt-driver';shutil.copyfile(host.BINS/'semwright-mlt-video-driver',mlt_driver);mlt_driver.chmod(0o500)
+    mlt_runner=fixture.paths['binary']/'mlt-runner';shutil.copyfile(host.BINS/'semwright-mlt-runtime-runner',mlt_runner);mlt_runner.chmod(0o500)
+    melt=Path(shutil.which('melt')).resolve();ffprobe=Path(shutil.which('ffprobe')).resolve();ffmpeg=Path(shutil.which('ffmpeg')).resolve()
+    mlt_runtime=melt.parent.parent.resolve()
+    mlt_manifest={
+        'manifest_version':1,'protocol':7,'id':'mlt-video','version':'0.9.0-dev.1',
+        'publisher':'sequencewright-native-production-test','executable':str(mlt_driver),'sha256':host.digest(mlt_driver),
+        'application':{'desktop_id':None,'process_names':['melt'],'supported_versions':[]},
+        'transport':'stdio_v1','network':False,'loopback_port':None,
+        'mounts':[{'root':'project','read_only':True,'execute':False},{'root':'media','read_only':True,'execute':False},{'root':'output','read_only':False,'execute':False},{'root':'mlt-runtime','read_only':True,'execute':True},{'root':'scratch','read_only':False,'execute':False}],
+        'tools':[
+            {'root':'mlt-runner-root','name':'mlt-runner','sha256':host.digest(mlt_runner),'mounts':['mlt-runtime','scratch','project','media','output'],'dependencies':['melt','ffprobe','ffmpeg']},
+            {'root':'melt-root','name':'melt','sha256':host.digest(melt),'mounts':[],'dependencies':[]},
+            {'root':'ffprobe-root','name':'ffprobe','sha256':host.digest(ffprobe),'mounts':[],'dependencies':[]},
+            {'root':'ffmpeg-root','name':'ffmpeg','sha256':host.digest(ffmpeg),'mounts':[],'dependencies':[]},
+        ],
+        'resources':{'open_files':512,'processes':256,'cpu_seconds':300,'operation_cpu_seconds':0,'address_space_bytes':4294967296,'file_size_bytes':1073741824},
+        'request_timeout_ms':300000,
+        'interfaces':{'dynamic_capabilities':False,'cooperative_cancellation':False,'events':False,'progress':False,'artifacts':False,'health':True,'native_refs':False,'host_tools':True},
+    }
+    mlt_path=fixture.paths['config']/'mlt-driver.json';mlt_path.write_text(json.dumps(mlt_manifest,indent=2));mlt_path.chmod(0o600)
     text=fixture.config.read_text();old='drivers = ['+json.dumps(str(fixture.paths['config']/'driver.json'))+']'
     assert old in text
-    text=text.replace(old,'drivers = ['+json.dumps(str(fixture.paths['config']/'driver.json'))+','+json.dumps(str(path))+']')
-    text=text.replace('allow = ["driver:sequencewright"]','allow = ["driver:sequencewright", "driver:motion-canvas"]')
-    for name,root,writable in [('project',project,True),('output',output,True),('runtime',runtime,False),('fontconfig',Path('/etc/fonts'),False),('motion-node-tool',node,False)]:
+    text=text.replace(old,'drivers = ['+json.dumps(str(fixture.paths['config']/'driver.json'))+','+json.dumps(str(path))+','+json.dumps(str(mlt_path))+']')
+    text=text.replace('allow = ["driver:sequencewright"]','allow = ["driver:sequencewright", "driver:motion-canvas", "driver:mlt-video"]')
+    for name,root,writable in [('project',project,True),('output',output,True),('runtime',runtime,False),('fontconfig',Path('/etc/fonts'),False),('motion-node-tool',node,False),('media',output,False),('mlt-runtime',mlt_runtime,False),('scratch',scratch,True),('mlt-runner-root',mlt_runner,False),('melt-root',melt,False),('ffprobe-root',ffprobe,False),('ffmpeg-root',ffmpeg,False)]:
         text+='\n[[policy.filesystem]]\nname = '+json.dumps(name)+'\npath = '+json.dumps(str(root))+'\nread = true\nwrite = '+str(writable).lower()+'\n'
     fixture.config.write_text(text)
     config={'schema':'sequencewright/connection/1','executable':str(cli),'executableSha256':host.digest(cli),'socket':str(fixture.socket),'session':str(fixture.paths['runtime']/'production-session'),'outputRoot':str(output),'maxFrames':1800,'resource':resource}
@@ -63,18 +88,22 @@ def run():
             edited=fixture.invoke('object.update',args)
             assert fixture.ui_call('document.read',{'resource':resource})['version']==edited['version']
             destination=EVIDENCE/kind
-            result=subprocess.run([str(fixture.node),str(ROOT/'scripts/native-render.mjs'),'--connection',str(connection),'--data',str(fixture.paths['data']),'--resource',resource,'--output',str(destination),'--typography','motion-pinned'],env=fixture.env,capture_output=True,text=True,timeout=240)
+            result=subprocess.run([str(fixture.node),str(ROOT/'scripts/native-render.mjs'),'--connection',str(connection),'--data',str(fixture.paths['data']),'--resource',resource,'--output',str(destination),'--typography','motion-pinned'],env=fixture.env,capture_output=True,text=True,timeout=900)
             (EVIDENCE/(kind+'-cli.log')).write_text(result.stdout+'\n'+result.stderr)
             assert result.returncode==0,result.stderr+result.stdout
             receipt=json.loads((destination/'receipt.json').read_text())
-            assert receipt['completed'] and receipt['render']=='SUCCEEDED' and receipt['range']['fullSequence']
+            assert receipt['completed'] and receipt['render']=='SUCCEEDED' and receipt['mlt']=='SUCCEEDED' and receipt['range']['fullSequence']
             assert receipt['sourceVersion']==edited['version']
             assert receipt['nativeVerification']['report']['support_level']=='native'
             assert receipt['nativeVerification']['measurement']['coverage']['font_resources_digest']
+            mezzanine=receipt['mezzanine'];assert mezzanine['codec']=='ffv1' and mezzanine['container']=='matroska' and mezzanine['frame_count']>0
+            assert mezzanine['media']['video'] is True and mezzanine['media']['audio'] is False and mezzanine['artifact']['bytes']>0
+            mlt_calls=[call for call in receipt['calls'] if call['command']=='driver.mlt-video.frames.encode']
+            assert len(mlt_calls)==1 and mlt_calls[0]['execution']['provenance']['provider']=='driver:mlt-video'
             assert fixture.ui_call('document.read',{'resource':resource})['version']==edited['version'],'Rendering must not rewrite the application document'
             manifest=json.loads((destination/'artifact-manifest.json').read_text())
             assert manifest['renderer']=='motion-canvas-core-renderer-v3.17.2'
-            results.append({'project':kind,'sourceVersion':edited['version'],'frameCount':len(manifest['frames']),'render':'PASS','nativeMeasurement':'completed','typography':'explicit motion-pinned profile','effects':'NOT_RUN','audio':'NOT_RUN','mlt':'NOT_RUN'})
+            results.append({'project':kind,'sourceVersion':edited['version'],'frameCount':len(manifest['frames']),'render':'PASS','nativeMeasurement':'completed','typography':'explicit motion-pinned profile','effects':'NOT_RUN','audio':'NOT_RUN','mlt':'PASS','mezzanine':{'codec':mezzanine['codec'],'container':mezzanine['container'],'sha256':mezzanine['artifact']['sha256'],'bytes':mezzanine['artifact']['bytes']}})
         finally:
             fixture.close()
     (EVIDENCE/'result.json').write_text(json.dumps({'sourceSha':subprocess.check_output(['git','-C',str(ROOT),'rev-parse','HEAD'],text=True).strip(),'sdkSha':'4d291de26724810017ce7b6d185326514cb79fa6','status':'PASS','projects':results},indent=2))

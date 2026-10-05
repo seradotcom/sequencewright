@@ -27,10 +27,12 @@ async function main(){
  const frames=options.frames===undefined?duration(source.document):Number(options.frames);
  require(Number.isSafeInteger(frames)&&frames>0&&frames<=duration(source.document)&&frames<=config.maxFrames,'Frame range exceeds the source sequence or owner production budget');
  const output=resolve(options.output);require(!existsSync(output),'Use a new evidence directory; existing files are preserved');mkdirSync(output,{mode:0o700});
- const receipt={schema:'sequencewright/native-render/1',resource:options.resource,sourceVersion:source.version,sourceDocumentSha256:sha(JSON.stringify(source.document)),filmSha256:sha(JSON.stringify(film)),typography:{profile:'motion-pinned',source:originalFonts,output:{font:film.editorial.font,monoFont:film.editorial.mono_font},requiresCreativeReview:true},range:{firstFrame:0,endFrameExclusive:frames,fullSequence:frames===duration(source.document)},calls:[],render:'NOT_RUN',effects:'NOT_RUN',graph:'UNKNOWN'};
+ const receipt={schema:'sequencewright/native-render/1',resource:options.resource,sourceVersion:source.version,sourceDocumentSha256:sha(JSON.stringify(source.document)),filmSha256:sha(JSON.stringify(film)),typography:{profile:'motion-pinned',source:originalFonts,output:{font:film.editorial.font,monoFont:film.editorial.mono_font},requiresCreativeReview:true},range:{firstFrame:0,endFrameExclusive:frames,fullSequence:frames===duration(source.document)},calls:[],render:'NOT_RUN',mlt:'NOT_RUN',effects:'NOT_RUN',graph:'UNKNOWN'};
  writeFileSync(join(output,'film.json'),JSON.stringify(film),{flag:'wx'});
  const save=()=>writeFileSync(join(output,'receipt.json'),JSON.stringify(receipt,null,2));
- const call=async(name,parameters,mutation=false)=>{const started=performance.now();const value=await client.execute('driver.motion-canvas.'+name,parameters,{mutation});receipt.calls.push({command:'driver.motion-canvas.'+name,durationMs:Math.round(performance.now()-started),...value});save();return value.data;};
+ const callCommand=async(command,parameters,mutation=false)=>{const started=performance.now();const value=await client.execute(command,parameters,{mutation});receipt.calls.push({command,durationMs:Math.round(performance.now()-started),...value});save();return value.data;};
+ const call=(name,parameters,mutation=false)=>callCommand('driver.motion-canvas.'+name,parameters,mutation);
+ const callMlt=(name,parameters,mutation=false)=>callCommand('driver.mlt-video.'+name,parameters,mutation);
  let interrupted=false;const interrupt=()=>{interrupted=true;};process.on('SIGINT',interrupt);process.on('SIGTERM',interrupt);
  try{
   const inspection=await call('composition.inspect',{});require(!inspection.low_level_project&&(!inspection.film||inspection.film.id===film.id),'Use an empty renderer workspace or one already bound to this Film');
@@ -57,8 +59,21 @@ async function main(){
    const path=join(directory,frame.file);const st=lstatSync(path);require(st.isFile()&&!st.isSymbolicLink()&&st.size===frame.bytes&&st.size<=32*1024*1024,'Native sample metadata mismatch');
    require(realpathSync(path).startsWith(directory+'/frames/'),'Native PNG is outside its artifact directory');const png=readFileSync(path);require(sha(png)===frame.sha256,'Native PNG digest mismatch');writeFileSync(join(output,`native-${index}.png`),png,{flag:'wx'});
   }
+  // Hand the immutable Motion Canvas frame manifest to Semwright's MLT driver by
+  // digest. The MLT provider re-reads and hashes every PNG before encoding it.
+  const mezzanineName=`sequencewright-${sha(source.version.revision).slice(0,16)}.mkv`;
+  receipt.mlt='REQUESTED';save();
+  const mezzanine=await callMlt('frames.encode',{root:'media',manifest_path:`${artifact.directory}/artifact-manifest.json`,expected_manifest_sha256:artifact.manifest_sha256,output_path:mezzanineName,max_bytes:1073741824},true);
+  require(mezzanine.codec==='ffv1'&&mezzanine.container==='matroska','MLT did not return the canonical lossless mezzanine profile');
+  require(mezzanine.source_manifest_sha256===artifact.manifest_sha256&&mezzanine.frame_count===frames,'MLT mezzanine is not bound to this native frame artifact');
+  require(mezzanine.width===manifest.plan.width&&mezzanine.height===manifest.plan.height&&mezzanine.fps_num===manifest.plan.fps&&mezzanine.fps_den===(manifest.plan.fps_denominator??1),'MLT mezzanine timing or dimensions changed');
+  require(mezzanine.media?.video===true&&mezzanine.media?.audio===false,'Visual mezzanine must contain verified video and no invented audio');
+  require(mezzanine.artifact?.root==='output'&&mezzanine.artifact?.path===mezzanineName&&/^[0-9a-f]{64}$/.test(mezzanine.artifact.sha256),'MLT returned invalid artifact provenance');
+  const mezzaninePath=join(root,mezzanineName),mezzanineStat=lstatSync(mezzaninePath);require(mezzanineStat.isFile()&&!mezzanineStat.isSymbolicLink()&&mezzanineStat.size===mezzanine.artifact.bytes,'MLT mezzanine metadata mismatch');
+  require(sha(readFileSync(mezzaninePath))===mezzanine.artifact.sha256,'MLT mezzanine digest differs from its canonical receipt');
+  receipt.mlt='SUCCEEDED';receipt.mezzanine=mezzanine;save();
   receipt.sourceState=store.current(options.resource).version.revision===source.version.revision?'CURRENT_APPLICATION_REVISION':'STALE_APPLICATION_REVISION';
-  receipt.completed=true;save();console.log(JSON.stringify({output,sourceVersion:source.version,frames,render:receipt.render,nativeMeasurement:verified.report.support_level,sourceState:receipt.sourceState,effects:receipt.effects,graph:receipt.graph}));
+  receipt.completed=true;save();console.log(JSON.stringify({output,sourceVersion:source.version,frames,render:receipt.render,mlt:receipt.mlt,nativeMeasurement:verified.report.support_level,sourceState:receipt.sourceState,effects:receipt.effects,graph:receipt.graph}));
  }catch(error){receipt.completed=false;receipt.error=error.message;save();throw error;}
  finally{store.close();process.off('SIGINT',interrupt);process.off('SIGTERM',interrupt);}
 }
