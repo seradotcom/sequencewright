@@ -2,6 +2,7 @@
 import {readFileSync,writeFileSync,mkdirSync,existsSync,realpathSync,lstatSync} from 'node:fs';
 import {resolve,join,isAbsolute} from 'node:path';
 import {createHash} from 'node:crypto';
+import {spawn} from 'node:child_process';
 import {setTimeout as wait} from 'node:timers/promises';
 import {Store} from '../src/store.mjs';
 import {toFilm} from '../src/projection.mjs';
@@ -60,6 +61,15 @@ async function main(){
  const graphBytes=value=>Buffer.from(JSON.stringify(value));
  const registerGraphAsset=async(project,file,label,resourceType)=>{require(file.bytes>0&&file.bytes<=4*1024*1024,'Graph evidence file exceeds the canonical registration budget');const registered=await callGraph('asset.register',{root:config.graphRoot,project,label,resource_type:resourceType,path:file.name,max_bytes:file.bytes},true);const id=registered.result?.asset?.id;require(registered.project===project&&registered.graph_schema===1&&/^asset_[0-9a-f]{32}$/.test(id??''),'Project Graph returned an invalid registered asset');require(registered.result.tombstoned===false&&registered.result.latest_revision,'Project Graph did not admit an active evidence revision');return {id,label,resourceType,file,revision:registered.result.latest_revision,knowledge:registered.result.knowledge};};
  const declareGraphEdge=async(project,from,to,relation)=>{const declared=await callGraph('edge.declare',{root:config.graphRoot,project,from,to,relation},true);require(declared.project===project&&declared.graph_schema===1&&declared.result?.declared===true&&declared.result?.execution_certified===false,'Project Graph did not preserve the declared-only edge boundary');return {from,to,relation,executionCertified:false,snapshot:declared.result.snapshot};};
+ const runEffectsTool=(args,input=Buffer.alloc(0))=>new Promise((resolve,reject)=>{
+  require(config.effectsExecutable&&config.effectsExecutableSha256,'Independent Effect Conformance requires a pinned Native SDK Effects helper');require(sha(readFileSync(config.effectsExecutable))===config.effectsExecutableSha256,'Native SDK Effects helper changed after connection validation');
+  const bytes=Buffer.isBuffer(input)?input:Buffer.from(input);require(bytes.length<=256*1024,'Effect Conformance definition exceeds its input budget');
+  const child=spawn(config.effectsExecutable,args,{shell:false,stdio:['pipe','pipe','pipe'],env:{HOME:process.env.HOME??output,PATH:'/usr/bin:/bin',LANG:'C.UTF-8'}});let stdout=[],stderr=[],outSize=0,errSize=0,ended=false;
+  const fail=message=>{if(ended)return;ended=true;clearTimeout(timer);child.kill('SIGKILL');reject(new Error(message));};const timer=setTimeout(()=>fail('Native SDK Effects helper exceeded its process deadline'),12000);
+  child.stdout.on('data',chunk=>{outSize+=chunk.length;if(outSize>1024*1024)fail('Native SDK Effects helper exceeded its output budget');else stdout.push(chunk);});child.stderr.on('data',chunk=>{errSize+=chunk.length;if(errSize>1024*1024)fail('Native SDK Effects diagnostics exceeded their budget');else stderr.push(chunk);});child.on('error',()=>fail('Native SDK Effects helper could not be started'));
+  child.on('close',code=>{if(ended)return;ended=true;clearTimeout(timer);const out=Buffer.concat(stdout),diagnostic=Buffer.concat(stderr).toString('utf8').trim();if(code!==0){reject(new Error(diagnostic||'Native SDK Effects helper failed'));return;}resolve(out);});child.stdin.end(bytes);
+ });
+ const scalarCheck=(id,artifactSlot,pointer,scalar,expected)=>({id,artifact_slot:artifactSlot,selector:{kind:'json',pointer,scalar},predicate:{kind:'equals',expected}});
  let interrupted=false;const interrupt=()=>{interrupted=true;};process.on('SIGINT',interrupt);process.on('SIGTERM',interrupt);
  try{
   const inspection=await call('composition.inspect',{});require(!inspection.low_level_project&&(!inspection.film||inspection.film.id===film.id),'Use an empty renderer workspace or one already bound to this Film');
@@ -128,13 +138,13 @@ async function main(){
    const mezzanineFile=stageGraphFile(`sequencewright-mezzanine-${mezzanine.artifact.sha256}.json`,graphBytes(mezzanineReference));
    const mezzanineGraph=await registerGraphAsset(project,mezzanineFile,'MLT verified mezzanine reference','sequencewright.mlt-mezzanine-ref+json');graphAssets.push(mezzanineGraph);
    relations.push(await declareGraphEdge(project,mezzanineGraph.id,renderGraph.id,'derived_from'));
-   let audioGraph=null,masterGraph=null;
+   let audioGraph=null,masterGraph=null,audioFile=null,masterFile=null;
    if(audioAsset){
     const audioReference={schema:'sequencewright/artifact-reference/1',kind:'application-audio-input',assetId:audioAsset.id,sha256:audioAsset.sha256,bytes:audioAsset.bytes,mime:audioAsset.mime,media:audioMedia,sourceVersion:source.version};
-    const audioFile=stageGraphFile(`sequencewright-audio-${audioAsset.sha256}.json`,graphBytes(audioReference));
+    audioFile=stageGraphFile(`sequencewright-audio-${audioAsset.sha256}.json`,graphBytes(audioReference));
     audioGraph=await registerGraphAsset(project,audioFile,'Application audio input reference','sequencewright.audio-input-ref+json');graphAssets.push(audioGraph);
     const masterReference={schema:'sequencewright/artifact-reference/1',kind:'mlt-h264-aac-master',artifact:master.artifact,decodedAudio:master.decoded_audio,videoSha256:master.video_sha256,audioSha256:master.audio_sha256,profile:master.profile,media:master.media,frameCount:master.frame_count,fps:{num:master.fps_num,den:master.fps_den},sampleRate:master.sample_rate,channels:master.channels};
-    const masterFile=stageGraphFile(`sequencewright-master-${master.artifact.sha256}.json`,graphBytes(masterReference));
+    masterFile=stageGraphFile(`sequencewright-master-${master.artifact.sha256}.json`,graphBytes(masterReference));
     masterGraph=await registerGraphAsset(project,masterFile,'Final verified AV master reference','sequencewright.av-master-ref+json');graphAssets.push(masterGraph);
     relations.push(await declareGraphEdge(project,masterGraph.id,mezzanineGraph.id,'derived_from'));
     relations.push(await declareGraphEdge(project,masterGraph.id,audioGraph.id,'derived_from'));
@@ -143,11 +153,54 @@ async function main(){
    const provenance=await callGraph('asset.provenance',{root:config.graphRoot,project,asset:sourceGraph.id,limit:32});require(provenance.result?.asset?.asset?.id===sourceGraph.id,'Project Graph provenance did not resolve the source Film');
    const impact=await callGraph('impact',{root:config.graphRoot,project,asset:sourceGraph.id,budget:{nodes:64,edges:128,depth:16,results:32}});
    const possible=new Set((impact.result?.possible??[]).map(item=>item.asset));for(const asset of [renderGraph,mezzanineGraph,masterGraph].filter(Boolean))require(possible.has(asset.id),'Declared downstream evidence is missing from canonical Graph impact');
+   receipt.effects='REQUESTED';save();
+   const number=(value,units)=>({kind:'number',value,units}),text=value=>({kind:'text',value}),bool=value=>({kind:'bool',value});
+   const effectsArtifacts=[
+    {slot:'source_film',path:sourceFile.name,sha256:sourceFile.sha256,bytes:sourceFile.bytes,mime_type:'application/json'},
+    {slot:'motion_manifest',path:manifestFile.name,sha256:manifestFile.sha256,bytes:manifestFile.bytes,mime_type:'application/json'},
+    {slot:'mezzanine_ref',path:mezzanineFile.name,sha256:mezzanineFile.sha256,bytes:mezzanineFile.bytes,mime_type:'application/json'},
+   ];
+   const effectsChecks=[
+    scalarCheck('source_width','source_film','/output/width',{kind:'number',units:'pixel'},number(sourceFilm.output.width,'pixel')),
+    scalarCheck('source_height','source_film','/output/height',{kind:'number',units:'pixel'},number(sourceFilm.output.height,'pixel')),
+    scalarCheck('motion_renderer','motion_manifest','/renderer',{kind:'text'},text(manifest.renderer)),
+    scalarCheck('motion_width','motion_manifest','/plan/width',{kind:'number',units:'pixel'},number(manifest.plan.width,'pixel')),
+    scalarCheck('motion_height','motion_manifest','/plan/height',{kind:'number',units:'pixel'},number(manifest.plan.height,'pixel')),
+    scalarCheck('motion_fps','motion_manifest','/plan/fps',{kind:'number',units:'fps'},number(manifest.plan.fps,'fps')),
+    scalarCheck('mezz_frames','mezzanine_ref','/frameCount',{kind:'number',units:'frame'},number(mezzanine.frame_count,'frame')),
+    scalarCheck('mezz_sha','mezzanine_ref','/artifact/sha256',{kind:'text'},text(mezzanine.artifact.sha256)),
+    scalarCheck('mezz_video','mezzanine_ref','/media/video',{kind:'bool'},bool(true)),
+    scalarCheck('mezz_audio','mezzanine_ref','/media/audio',{kind:'bool'},bool(false)),
+   ];
+   if(audioAsset){
+    effectsArtifacts.push({slot:'audio_ref',path:audioFile.name,sha256:audioFile.sha256,bytes:audioFile.bytes,mime_type:'application/json'},{slot:'master_ref',path:masterFile.name,sha256:masterFile.sha256,bytes:masterFile.bytes,mime_type:'application/json'});
+    effectsChecks.push(
+     scalarCheck('audio_sha','audio_ref','/sha256',{kind:'text'},text(audioAsset.sha256)),
+     scalarCheck('audio_rate','audio_ref','/media/sampleRate',{kind:'number',units:'hertz'},number(48000,'hertz')),
+     scalarCheck('master_profile','master_ref','/profile',{kind:'text'},text('h264-aac-mp4')),
+     scalarCheck('master_video_sha','master_ref','/videoSha256',{kind:'text'},text(mezzanine.artifact.sha256)),
+     scalarCheck('master_audio_sha','master_ref','/audioSha256',{kind:'text'},text(audioAsset.sha256)),
+     scalarCheck('master_rate','master_ref','/sampleRate',{kind:'number',units:'hertz'},number(48000,'hertz')),
+     scalarCheck('master_channels','master_ref','/channels',{kind:'number',units:'channel'},number(2,'channel')),
+     scalarCheck('master_video','master_ref','/media/video',{kind:'bool'},bool(true)),
+     scalarCheck('master_audio','master_ref','/media/audio',{kind:'bool'},bool(true)),
+    );
+   }
+   const effectsDefinition={owner:{session:'sequencewright-effects',principal:{named:'sequencewright-production'}},request_id:`effects_${sha(source.version.revision).slice(0,32)}`,source_digest:receipt.sourceFilmSha256,runtime_digest:config.effectsExecutableSha256,declared_producer_execution_status:'completed',application_roots:[realpathSync(options.data)],artifacts:effectsArtifacts,checks:effectsChecks};
+   const prepared=await runEffectsTool(['--prepare'],Buffer.from(JSON.stringify(effectsDefinition)));const preparedValue=JSON.parse(prepared.toString('utf8'));require(preparedValue.schema_version==='semwright-native-effects-spec/1','Native SDK Effects helper returned an unknown prepared spec');
+   const specPath=join(output,'effects-spec.json'),specSha=sha(prepared);writeFileSync(specPath,prepared,{flag:'wx',mode:0o600});
+   const effectsBytes=await runEffectsTool(['--spec',specPath,'--spec-sha256',specSha,'--artifact-root',root]);const effectsResult=JSON.parse(effectsBytes.toString('utf8'));
+   require(effectsResult.schema_version==='semwright-native-effects-result/1'&&effectsResult.spec_sha256===specSha,'Independent Effect Conformance result is not bound to the prepared spec');
+   require(effectsResult.verdict==='PASS'&&effectsResult.inspection_state==='EVALUATED'&&effectsResult.scope==='immutable_native_sdk_artifact_properties_only','Independent Effect Conformance did not fully pass its bounded artifact-property scope');
+   require(effectsResult.execution_authority===false&&effectsResult.context_attestation==='DECLARED_CONTEXT_NOT_NATIVE_EXECUTION_ATTESTATION','Effect readback must not claim producer execution authority');
+   require(effectsResult.evaluation?.report?.support_level==='read_only'&&effectsResult.private_measurements?.length===effectsChecks.length,'Effect Conformance coverage is incomplete');
+   writeFileSync(join(output,'effects-result.json'),effectsBytes,{flag:'wx',mode:0o600});
+   receipt.effects={state:'PASS',scope:effectsResult.scope,verdict:effectsResult.verdict,inspectionState:effectsResult.inspection_state,executionAuthority:false,specSha256:specSha,sourceDigest:effectsResult.source_digest,runtimeDigest:effectsResult.runtime_digest,measurementCount:effectsResult.private_measurements.length,report:effectsResult.evaluation.report};
    receipt.graph={state:'ADMITTED_DECLARATIONS',root:config.graphRoot,project,executionCertified:false,assets:graphAssets,relations,query:{snapshot:queried.result.snapshot,count:queried.result.items.length},sourceProvenance:{snapshot:provenance.result.snapshot,possibleDerivatives:provenance.result.possible_derivatives,unknownFrontier:provenance.result.unknown_frontier},sourceImpact:{snapshot:impact.result.snapshot,possible:impact.result.possible,unknownFrontier:impact.result.unknown_frontier,truncated:impact.result.truncated}};
    save();
   }else receipt.graph='NOT_CONFIGURED';
   receipt.sourceState=store.current(options.resource).version.revision===source.version.revision?'CURRENT_APPLICATION_REVISION':'STALE_APPLICATION_REVISION';
-  receipt.completed=true;save();console.log(JSON.stringify({output,sourceVersion:source.version,frames,render:receipt.render,mlt:receipt.mlt,delivery:receipt.delivery,audio:receipt.audio.state,nativeMeasurement:verified.report.support_level,sourceState:receipt.sourceState,effects:receipt.effects,graph:typeof receipt.graph==='string'?receipt.graph:receipt.graph.state}));
+  receipt.completed=true;save();console.log(JSON.stringify({output,sourceVersion:source.version,frames,render:receipt.render,mlt:receipt.mlt,delivery:receipt.delivery,audio:receipt.audio.state,nativeMeasurement:verified.report.support_level,sourceState:receipt.sourceState,effects:typeof receipt.effects==='string'?receipt.effects:receipt.effects.state,graph:typeof receipt.graph==='string'?receipt.graph:receipt.graph.state}));
  }catch(error){receipt.completed=false;receipt.error=error.message;save();throw error;}
  finally{store.close();process.off('SIGINT',interrupt);process.off('SIGTERM',interrupt);}
 }

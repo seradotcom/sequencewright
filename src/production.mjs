@@ -29,9 +29,11 @@ function privatePath(path,{directory=false,socket=false}={}){
 export function readConnection(path){
  const file=privatePath(path);need(lstatSync(file).size<16384,'Connection file is too large');
  const config=JSON.parse(readFileSync(file,'utf8'));
- closed(config,['schema','executable','executableSha256','socket','session','outputRoot','maxFrames','resource','graphRoot'],['schema','executable','executableSha256','socket','session','outputRoot','resource']);
- need(config.schema==='sequencewright/connection/1','Unknown connection schema');
+ closed(config,['schema','executable','executableSha256','effectsExecutable','effectsExecutableSha256','socket','session','outputRoot','maxFrames','resource','graphRoot'],['schema','executable','executableSha256','socket','session','outputRoot','resource']);
+ need(['sequencewright/connection/1','sequencewright/connection/2'].includes(config.schema),'Unknown connection schema');
+ if(config.schema==='sequencewright/connection/2')need(typeof config.effectsExecutable==='string'&&typeof config.effectsExecutableSha256==='string','Connection v2 requires the independent Native SDK Effects helper');
  config.executable=privatePath(config.executable);config.socket=privatePath(config.socket,{socket:true});config.outputRoot=privatePath(config.outputRoot,{directory:true});
+ if(config.effectsExecutable!==undefined){config.effectsExecutable=privatePath(config.effectsExecutable);need(/^[0-9a-f]{64}$/.test(config.effectsExecutableSha256??'')&&sha(readFileSync(config.effectsExecutable))===config.effectsExecutableSha256,'Native SDK Effects executable digest mismatch','PermissionDenied');}
  privatePath(dirname(config.session),{directory:true});need(isAbsolute(config.session),'Session must be an absolute owner-selected path');
  need(/^[0-9a-f]{64}$/.test(config.executableSha256)&&sha(readFileSync(config.executable))===config.executableSha256,'Canonical CLI executable digest mismatch','PermissionDenied');
  config.maxFrames=integer(config.maxFrames??1800,1,18000);str(config.resource,160);if(config.graphRoot!==undefined){str(config.graphRoot,64);need(/^[A-Za-z0-9_-]+$/.test(config.graphRoot),'Graph root must be a canonical filesystem grant name');}

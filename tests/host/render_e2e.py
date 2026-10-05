@@ -28,6 +28,8 @@ def prepare_motion(fixture,resource):
     shutil.copyfile(host.BINS/'semwright-motion-canvas-driver',driver);driver.chmod(0o500)
     cli=fixture.paths['binary']/'semwright-cli'
     shutil.copyfile(host.BINS/'semwright',cli);cli.chmod(0o500)
+    effects=fixture.paths['binary']/'semwright-native-effects'
+    shutil.copyfile(host.BINS/'semwright-native-effects',effects);effects.chmod(0o500)
     manifest={
         'manifest_version':1,'protocol':7,'id':'motion-canvas','version':'0.9.0-dev.1',
         'publisher':'sequencewright-native-production-test','executable':str(driver),'sha256':host.digest(driver),
@@ -72,7 +74,7 @@ def prepare_motion(fixture,resource):
     for name,root,writable in [('project',project,True),('output',output,True),('runtime',runtime,False),('fontconfig',Path('/etc/fonts'),False),('motion-node-tool',node,False),('media',output,False),('mlt-runtime',mlt_runtime,False),('scratch',scratch,True),('mlt-runner-root',mlt_runner,False),('melt-root',melt,False),('ffprobe-root',ffprobe,False),('ffmpeg-root',ffmpeg,False)]:
         text+='\n[[policy.filesystem]]\nname = '+json.dumps(name)+'\npath = '+json.dumps(str(root))+'\nread = true\nwrite = '+str(writable).lower()+'\n'
     fixture.config.write_text(text)
-    config={'schema':'sequencewright/connection/1','executable':str(cli),'executableSha256':host.digest(cli),'socket':str(fixture.socket),'session':str(fixture.paths['runtime']/'production-session'),'outputRoot':str(output),'maxFrames':1800,'resource':resource,'graphRoot':'output'}
+    config={'schema':'sequencewright/connection/2','executable':str(cli),'executableSha256':host.digest(cli),'effectsExecutable':str(effects),'effectsExecutableSha256':host.digest(effects),'socket':str(fixture.socket),'session':str(fixture.paths['runtime']/'production-session'),'outputRoot':str(output),'maxFrames':1800,'resource':resource,'graphRoot':'output'}
     connection=fixture.paths['config']/'production.json';connection.write_text(json.dumps(config,indent=2));connection.chmod(0o600)
     return connection
 
@@ -140,6 +142,11 @@ def run():
             expected_downstream={asset['id'] for asset in graph['assets'] if asset['id']!=source_graph['id'] and asset['resourceType']!='sequencewright.audio-input-ref+json'}
             assert downstream.issuperset(expected_downstream)
             assert graph['sourceImpact']['truncated'] is False
+            effects=receipt['effects'];assert effects['state']=='PASS' and effects['verdict']=='PASS'
+            assert effects['scope']=='immutable_native_sdk_artifact_properties_only' and effects['executionAuthority'] is False
+            assert effects['inspectionState']=='EVALUATED' and effects['report']['support_level']=='read_only'
+            assert effects['measurementCount']==(19 if audio else 10)
+            assert (destination/'effects-spec.json').is_file() and (destination/'effects-result.json').is_file()
             assert receipt['nativeVerification']['report']['support_level']=='native'
             assert receipt['nativeVerification']['measurement']['coverage']['font_resources_digest']
             mezzanine=receipt['mezzanine'];assert mezzanine['codec']=='ffv1' and mezzanine['container']=='matroska' and mezzanine['frame_count']>0
@@ -160,7 +167,7 @@ def run():
             assert fixture.ui_call('document.read',{'resource':resource})['version']==current['version'],'Rendering must not rewrite the application document'
             manifest=json.loads((destination/'artifact-manifest.json').read_text())
             assert manifest['renderer']=='motion-canvas-core-renderer-v3.17.2'
-            results.append({'project':kind,'sourceVersion':current['version'],'frameCount':len(manifest['frames']),'render':'PASS','nativeMeasurement':'completed','typography':'explicit motion-pinned profile','effects':'NOT_RUN','graph':'PASS_DECLARED','audio':audio_result,'delivery':'PASS' if audio else 'NOT_RUN','mlt':'PASS','mezzanine':{'codec':mezzanine['codec'],'container':mezzanine['container'],'sha256':mezzanine['artifact']['sha256'],'bytes':mezzanine['artifact']['bytes']},'master':master_summary})
+            results.append({'project':kind,'sourceVersion':current['version'],'frameCount':len(manifest['frames']),'render':'PASS','nativeMeasurement':'completed','typography':'explicit motion-pinned profile','effects':'PASS_READ_ONLY','graph':'PASS_DECLARED','audio':audio_result,'delivery':'PASS' if audio else 'NOT_RUN','mlt':'PASS','mezzanine':{'codec':mezzanine['codec'],'container':mezzanine['container'],'sha256':mezzanine['artifact']['sha256'],'bytes':mezzanine['artifact']['bytes']},'master':master_summary})
         finally:
             fixture.close()
     (EVIDENCE/'result.json').write_text(json.dumps({'sourceSha':subprocess.check_output(['git','-C',str(ROOT),'rev-parse','HEAD'],text=True).strip(),'sdkSha':'4d291de26724810017ce7b6d185326514cb79fa6','status':'PASS','projects':results},indent=2))

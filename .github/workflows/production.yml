@@ -75,6 +75,7 @@ jobs:
           export SEQUENCEWRIGHT_NATIVE_BUNDLE_SHA256="$(cat dist/bundle.sha256)"
           cargo build --locked --manifest-path native/Cargo.toml --bins
           cargo build --locked --manifest-path upstream/Cargo.toml -p semwright-daemon -p semwright-cli --bins
+          cargo build --locked --manifest-path upstream/Cargo.toml -p semwright-native-sdk --features effects --bin semwright-native-effects
           cargo build --locked --manifest-path upstream/Cargo.toml -p semwright-plugin-host --bin semwright-sandbox -p semwright-driver-motion-canvas --bin semwright-motion-canvas-driver
           cargo build --locked --manifest-path upstream/Cargo.toml -p semwright-mlt-video-driver --bin semwright-mlt-video-driver --bin semwright-mlt-runtime-runner
       - name: Three real SDK-authored sequences through canonical native rendering
