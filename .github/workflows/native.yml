@@ -1,0 +1,63 @@
+name: Native SDK and canonical compiler
+on:
+  push:
+    paths: ['native/**', 'src/**', 'vendor/**', 'contracts/**', 'package*.json', 'scripts/bundle-native.mjs', 'scripts/fixtures.mjs', '.github/workflows/native.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: native-${{ github.ref }}
+  cancel-in-progress: false
+env:
+  CARGO_INCREMENTAL: '0'
+  CARGO_PROFILE_DEV_DEBUG: '0'
+  CARGO_PROFILE_TEST_DEBUG: '0'
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24.21.0'
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: native
+          cache-on-failure: true
+      - name: Exact source and binding
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build:native
+          echo "SEQUENCEWRIGHT_NATIVE_BUNDLE_SHA256=$(cat dist/bundle.sha256)" >> "$GITHUB_ENV"
+      - name: Build and exercise real Native SDK contracts
+        run: |
+          if [ ! -f native/Cargo.lock ]; then cargo generate-lockfile --manifest-path native/Cargo.toml; fi
+          cargo test --locked --manifest-path native/Cargo.toml
+          cargo build --locked --manifest-path native/Cargo.toml --bins
+      - name: Canonical Film compiler on three independent projects
+        run: |
+          node scripts/fixtures.mjs
+          mkdir -p verification/native
+          for fixture in dist/fixtures/*.film.json; do
+            native/target/debug/sequencewright-compile < "$fixture" > "verification/native/$(basename "$fixture" .film.json).realization.json"
+          done
+          printf '%s\n' '${{ github.sha }}' > verification/native/source-sha.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: native-${{ github.sha }}
+          path: |
+            verification/native
+            native/Cargo.lock
+            dist/binding.json
+            dist/sequencewright.cjs
+            native/target/debug/sequencewright-driver
+            native/target/debug/sequencewright-compile
+          retention-days: 14

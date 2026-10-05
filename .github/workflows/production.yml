@@ -1,0 +1,90 @@
+name: Native production pixels
+on:
+  push:
+    paths: ['scripts/native-render.mjs', 'scripts/bundle-native.mjs', 'src/**', 'native/**', 'contracts/**', 'tests/host/**', 'package*.json', '.github/workflows/production.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: production-${{ github.ref }}
+  cancel-in-progress: false
+env:
+  CARGO_INCREMENTAL: '0'
+  CARGO_PROFILE_DEV_DEBUG: '0'
+  CARGO_PROFILE_TEST_DEBUG: '0'
+  PLAYWRIGHT_BROWSERS_PATH: '0'
+  SEMWRIGHT_SOURCE: ${{ github.workspace }}/upstream
+  SEMWRIGHT_TEST_DRIVER_SANDBOX: '1'
+  SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/upstream/target/debug/semwright-sandbox
+jobs:
+  native-pixels:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: seradotcom/semwright
+          ref: 4d291de26724810017ce7b6d185326514cb79fa6
+          path: upstream
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: |
+            native
+            upstream
+          key: sequencewright-real-host-1.98.1
+          cache-on-failure: true
+      - name: Exact sources and owner-scoped sandbox setup
+        run: |
+          echo "SEMWRIGHT_TEST_MOTION_NODE=$RUNNER_TEMP/sequencewright-motion-node" >> "$GITHUB_ENV"
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+          test "$(git -C upstream rev-parse HEAD)" = 4d291de26724810017ce7b6d185326514cb79fa6
+          test "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" = 1
+          cd upstream
+          bash scripts/dev/ci-driver-bwrap-profile.sh ../verification/production-sandbox-profile.txt
+      - name: Native build prerequisites on the disposable runner
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libpipewire-0.3-dev pkg-config clang melt ffmpeg
+          melt -version | head -5
+          ffmpeg -version | head -3
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22.22.0'
+      - name: Exact Motion Canvas runtime and pinned Firefox
+        working-directory: upstream/integrations/motion-canvas/runtime
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx --no-install playwright install --with-deps firefox
+          cp "$(command -v node)" "$SEMWRIGHT_TEST_MOTION_NODE"
+          chmod 0500 "$SEMWRIGHT_TEST_MOTION_NODE"
+          npm run probe
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24.21.0'
+      - name: Build actual application and renderer drivers
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build:native
+          export SEQUENCEWRIGHT_NATIVE_BUNDLE_SHA256="$(cat dist/bundle.sha256)"
+          cargo build --locked --manifest-path native/Cargo.toml --bins
+          cargo build --locked --manifest-path upstream/Cargo.toml -p semwright-daemon -p semwright-cli --bins
+          cargo build --locked --manifest-path upstream/Cargo.toml -p semwright-plugin-host --bin semwright-sandbox -p semwright-driver-motion-canvas --bin semwright-motion-canvas-driver
+          cargo build --locked --manifest-path upstream/Cargo.toml -p semwright-mlt-video-driver --bin semwright-mlt-video-driver --bin semwright-mlt-runtime-runner
+      - name: Three real SDK-authored sequences through canonical native rendering
+        run: python3 tests/host/render_e2e.py
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: native-production-${{ github.sha }}
+          path: |
+            verification/production
+            verification/production-sandbox-profile.txt
+          if-no-files-found: error
+          retention-days: 14

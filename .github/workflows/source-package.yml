@@ -1,0 +1,65 @@
+name: Source package
+on:
+  push:
+    paths:
+      - '.github/**'
+      - 'contracts/**'
+      - 'docs/**'
+      - 'native/**'
+      - 'public/**'
+      - 'scripts/**'
+      - 'src/**'
+      - 'tests/**'
+      - 'vendor/**'
+      - '*.md'
+      - '*.json'
+      - '*.mjs'
+      - '*.toml'
+      - '.gitignore'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: source-package-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Exact source and deterministic archive
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+          python3 scripts/package.py | tee source-package.log
+      - name: Verify manifest, paths and archive digest
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, pathlib, zipfile
+          root=pathlib.Path('.')
+          result=json.loads((root/'dist/source-package.json').read_text())
+          archive=root/'dist'/result['archive']
+          assert hashlib.sha256(archive.read_bytes()).hexdigest()==result['sha256']
+          with zipfile.ZipFile(archive) as z:
+              names=z.namelist()
+              assert len(names)==len(set(names))
+              assert all(name.startswith('sequencewright/') and '..' not in pathlib.PurePosixPath(name).parts for name in names)
+              assert not any(any(part in {'node_modules','target','.data','.git','__pycache__','.cache'} for part in pathlib.PurePosixPath(name).parts) for name in names)
+              manifest=json.loads(z.read('sequencewright/MANIFEST_SHA256.json'))
+              assert manifest['source_revision']=='${{ github.sha }}'
+              for name,digest in manifest['files'].items():
+                  assert hashlib.sha256(z.read('sequencewright/'+name)).hexdigest()==digest
+          print(json.dumps({'verified': True, **result}, indent=2))
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: sequencewright-source-${{ github.sha }}
+          path: |
+            dist/sequencewright-*-source.zip
+            dist/sequencewright-*-source.zip.sha256
+            dist/source-package.json
+            source-package.log
+          if-no-files-found: error
+          retention-days: 30

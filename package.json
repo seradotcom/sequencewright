@@ -1,0 +1,11 @@
+{
+  "name": "sequencewright", "version": "0.1.0-alpha.1", "private": true,
+  "description": "Semwright-native audiovisual authoring studio", "license": "AGPL-3.0-only", "type": "module",
+  "engines": {"node": ">=24.21.0 <25"},
+  "scripts": {
+    "start": "node src/server.mjs", "test": "node --test tests/*.test.mjs",
+    "check": "node scripts/check.mjs", "build:native": "node scripts/bundle-native.mjs",
+    "test:browser": "playwright test", "package": "python3 scripts/package.py"
+  },
+  "devDependencies": {"@playwright/test": "1.58.2", "esbuild": "0.28.2", "typescript": "5.9.3"}
+}

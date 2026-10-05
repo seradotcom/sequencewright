@@ -1,0 +1,75 @@
+name: Real UI and Native SDK Host
+on:
+  push:
+    paths: ['tests/host/**', 'native/**', 'src/**', 'contracts/**', '.github/workflows/native-host.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: host-${{ github.ref }}
+  cancel-in-progress: false
+env:
+  CARGO_INCREMENTAL: '0'
+  CARGO_PROFILE_DEV_DEBUG: '0'
+  CARGO_PROFILE_TEST_DEBUG: '0'
+  SEMWRIGHT_SOURCE: ${{ github.workspace }}/upstream
+  SEMWRIGHT_TEST_DRIVER_SANDBOX: '1'
+  SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/upstream/target/debug/semwright-sandbox
+jobs:
+  real-host:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: seradotcom/semwright
+          ref: 4d291de26724810017ce7b6d185326514cb79fa6
+          path: upstream
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24.21.0'
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: |
+            native
+            upstream
+          key: sequencewright-real-host-1.98.1
+          cache-on-failure: true
+      - name: Exact sources and scoped sandbox provisioning
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+          test "$(git -C upstream rev-parse HEAD)" = 4d291de26724810017ce7b6d185326514cb79fa6
+          test "$(sysctl -n kernel.unprivileged_userns_clone)" = 1
+          test "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" = 1
+          cd upstream
+          bash scripts/dev/ci-driver-bwrap-profile.sh ../verification/host-sandbox-profile.txt
+      - name: Install native dependencies only on the disposable runner
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libpipewire-0.3-dev pkg-config clang
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build:native
+          echo "SEQUENCEWRIGHT_NATIVE_BUNDLE_SHA256=$(cat dist/bundle.sha256)" >> "$GITHUB_ENV"
+      - name: Build canonical Host and actual application driver
+        run: |
+          cargo build --locked --manifest-path upstream/Cargo.toml -p semwright-daemon -p semwright-cli -p semwright-mcp --bins
+          cargo build --locked --manifest-path upstream/Cargo.toml -p semwright-plugin-host --bin semwright-sandbox
+          cargo build --locked --manifest-path native/Cargo.toml --bins
+      - name: Shared application state through both real interfaces
+        run: python3 tests/host/native_e2e.py
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: real-host-${{ github.sha }}
+          path: |
+            verification/host
+            verification/host-sandbox-profile.txt
+          if-no-files-found: error
+          retention-days: 14
