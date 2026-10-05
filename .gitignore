@@ -16,3 +16,5 @@ test-results/
 .agents/
 .impeccable/review/
 .impeccable/live/
+
+__pycache__/

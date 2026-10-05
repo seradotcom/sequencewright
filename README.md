@@ -1,50 +1,90 @@
 # Sequencewright
 
-An application-owned audiovisual authoring studio in the Semwright family. Build a sequence, edit its composition and timing, compare an alternative, and preserve the decision as an immutable revision.
+**Local-first audiovisual authoring for Semwright. Development alpha — not a finished production release.**
 
-**Development alpha under active implementation, not a finished production release.** SQLite transaction authority is recovered and under test; UI, driver and native compiler integration are still being completed. Native rendering, canonical Graph/Effects and full production acceptance must be verified independently; browser previews are explicitly design approximations. An empty or unconnected renderer is never shown as a successful export.
+Sequencewright combines an editable scene canvas, frame-based timeline, narrative brief, scoped alternatives, branch review and immutable revision history. The browser UI and a real Semwright Native SDK driver use the **same application-owned SQLite state**. The application does not implement a second Broker, renderer, Graph or workflow authority.
 
-## Run the editor
+![Sequencewright dark editor: original editable design study](docs/assets/desktop-dark.png)
 
-Install Node **24.21.0** (the pinned native TypeScript profile), then run:
+The screenshot above is the running editor at source `93b4e40ead683e378f22131b7b045229fb48da17`, captured by the browser acceptance workflow. The canvas is a **design approximation**, not native-rendered media. [Light workspace](docs/assets/desktop-light.png) · [Mobile viewport](docs/assets/mobile.png).
+
+## Run the local editor
+
+Use **Node 24.21.x** for the verified runtime profile. The editor has no production npm dependencies and does not need a frontend build.
 
 ```sh
+git clone https://github.com/seradotcom/sequencewright.git
+cd sequencewright
 npm start
 ```
 
-Open `http://127.0.0.1:4318`. No npm installation is necessary to run the editor: it has no third-party runtime dependencies beyond the vendored official Semwright binding. The first run creates three original editable studies and a local SQLite database under `.data`. Use `SEQUENCEWRIGHT_DATA` to choose a different **application-owned** data directory. Do not expose this local-authoring server to a network or reverse proxy.
+Open `http://127.0.0.1:4318`. Data is stored in `.data/sequencewright.db`. The first launch creates three original, synthetic studies: a product sequence, an educational story and a brand study. The files and dialogue from the private specification kit are not included.
 
-`npm test` runs bounded application tests. Heavy browser, Rust and native integration work belongs in the repository's GitHub Actions workflows, not on a storage-constrained workstation. Install pinned development tools with `npm ci --ignore-scripts` only when needed.
-
-## The workspace
-
-The studio includes a narrative brief, scene board, selectable SVG design canvas, numeric object inspector, frame-based timeline, typed keyframes, captions, structured manual proposals, A/B previews, exact-revision branches and conflict-aware merges, anchored comments, immutable history, small asset imports with provenance, and editable project/Film/subtitle exports. Dark/light themes, keyboard playback, a command palette and collapsible responsive panels share one interface.
-
-A proposal does not alter the current composition until accepted. Edits and agent calls use the same application-owned CAS transaction; a stale base cannot silently overwrite the current revision. Exact request keys are durable, and historical retries return historical receipts without replaying effects.
-
-## Semwright is a real dependency
-
-The TypeScript binding is copied unchanged from the canonical source and transpiled for the dependency-free local runtime. The Rust adapter depends directly on `semwright-native-sdk` with the `process-bridge` feature. The compiler calls `semwright_motion_authoring::realize` on canonical `Film` values; Sequencewright does not replace the domain compiler, solver, Broker, Host, Policy, Graph or Effects authority.
-
-Pinned upstream revision: `4d291de26724810017ce7b6d185326514cb79fa6`.
+To select another application-owned data directory or local port:
 
 ```sh
-npm ci --ignore-scripts
-npm run build:native
-export SEQUENCEWRIGHT_NATIVE_BUNDLE_SHA256="$(cat dist/bundle.sha256)"
-cargo build --manifest-path native/Cargo.toml --bins
-node scripts/fixtures.mjs
-native/target/debug/sequencewright-compile < dist/fixtures/product.film.json
+SEQUENCEWRIGHT_DATA=/absolute/private/sequencewright-data PORT=4318 npm start
 ```
 
-Build native tools in CI unless your workstation has an appropriate storage budget. A driver binary alone does not establish a running Semwright Host or renderer. See `docs/NATIVE_SDK.md` and `docs/STATUS.md` for the exact supported boundary.
+Keep the service on loopback. This alpha is not an authenticated multi-user web service. Stop it normally before making a filesystem backup; alternatively export a project archive from Deliver. Do not delete the database to solve an application error.
 
-## Data and trust
+## What is implemented
 
-No telemetry, cloud uploads, AI API keys, subscriptions, shell/source execution fields or automatic publishing. The initial studies are original synthetic material, not supplied customer footage or a generated voiceover. History is append-only; archiving objects does not delete their evidence. SQLite is the application's source of truth; browser storage holds only UI preferences.
+| Area | Current implementation |
+| --- | --- |
+| Authoring | Editable text and shape objects, layer/scene inspectors, drag positioning, frame scrubbing, scene ordering and duration edits, typed keyframes, guides, dark/light themes and responsive layouts. |
+| Editorial work | Brief and narration text, manual scoped text alternatives with A/B previews, deferred acceptance/rejection, anchored comments and explicit claim-review metadata. |
+| Persistence | Application-owned SQLite transactions, revision/generation comparison, durable exact-request deduplication/recovery, immutable history, explicit branch comparison and three-way merge decisions. |
+| Native SDK | Actual Rust `NativeDriver`, official TypeScript application binding and sandboxed `NodeBridge`; 37 application operation contracts plus the SDK observation/recovery surface. |
+| Interchange | Project JSON archives, typed canonical Film JSON and SRT/WebVTT captions. Local binary image/audio/video import up to 16 MiB per asset with application revision binding, provenance, declared licensing and server-computed content digests. |
+| Native production | Explicit owner/operator CLI: canonical Motion Canvas planning/render/measurement → digest-bound MLT FFV1 mezzanine. One exact-duration 48 kHz stereo PCM WAV can additionally be bound into MLT H.264/AAC delivery with decoded-final-audio verification. |
+| Verification | Real browser behavior, three canonical Film compilations and actual UI ↔ Broker/Driver Host ↔ Native SDK shared-state integration in GitHub Actions. |
 
-Keep copies of your data before using an alpha. Large-media streaming and native production are not yet part of the editor's verified acceptance scope. The app reports these limitations in-context.
+The interactive **Deliver** workspace does not start native jobs yet. A narrow, explicit operator path can create a verified MP4 without turning the editor service into a renderer or scheduler. Voice recording/alignment, multitrack audio editing/mixing, Blender/Manim contributions, canonical Graph admission, independent Effect Conformance, provider-backed AI, remote collaboration, Platform workflows and signed desktop installers are not completed. Delivery profiles currently express intent; they do not silently reflow a finished native render. See [STATUS.md](STATUS.md) for the exact boundaries.
+
+## Actual Semwright integration
+
+The dependency is pinned to public Semwright revision:
+
+```text
+4d291de26724810017ce7b6d185326514cb79fa6
+Semwright 0.9.0-dev.1
+```
+
+The TypeScript source in `vendor/semwright-native-sdk/index.ts` is preserved with its upstream licenses and fingerprint in `SOURCE_LOCK.json`. The Rust dependencies use that same exact revision and a committed Cargo lockfile. The app owns state and transactions; the canonical Host owns native references, policy, isolation and tools.
+
+The separate `sequencewright-compile` binary invokes **`semwright_motion_authoring::realize`**, not a reimplemented temporal solver. Its result is canonical timing/realization data and, by itself, explicitly reports that pixels/audio have not been rendered or measured. Production is a separate canonical Host route. Because the browser design font profile differs from the Motion Canvas runtime, `scripts/native-render.mjs` applies an explicit pinned production typography profile, records the substitution in its receipt and requires creative review rather than silently mutating the project.
+
+Heavy compilation and native rendering are intentionally handled by GitHub Actions. A Native SDK workflow artifact contains the built driver, compiler, binding metadata and matching `sequencewright.cjs` bundle. Do not mix a binary and bundle from different runs: the bundle digest is compiled into the driver. The process bridge retains its tested 48 KiB JavaScript bundle ceiling; local binary media ingestion is deliberately kept outside that bridge instead of raising the Native SDK transport budget.
+
+For a reviewed, owner-provisioned Linux host setup, see [native integration](docs/NATIVE_INTEGRATION.md). `scripts/provision-native.py` creates a new private owner configuration from explicit inputs; it does not start a daemon, modify operating-system sandbox policy, install anything globally or connect rendering runtimes.
+
+## Tests and evidence
+
+```sh
+npm run check
+npm test
+```
+
+These are the light application checks. Browser installation, native compilation and Host/runtime integration belong on the disposable CI runner:
+
+| Workflow | Scope |
+| --- | --- |
+| `Studio behavior and visual evidence` | Application tests, nine browser acceptance cases and desktop/light/mobile screenshots. |
+| `Native SDK and canonical compiler` | Exact-SHA binding build, real SDK contract registration and three Film compiler fixtures. |
+| `Real UI and Native SDK Host` | Real canonical daemon, CLI, Driver Host, sandbox helper, application driver, shared HTTP state, durable historical recovery and daemon restart. |
+| `Source package` | Deterministic source ZIP with a per-file digest manifest; no private data, caches, binaries or font files. |
+
+Evidence is bound to the SHA on each run, not inherited from a previous green commit. [VERIFY.md](VERIFY.md) records the historical verified checkpoints and the boundaries they do not prove.
+
+## Development boundaries
+
+The application is deliberately not a screen-click automation wrapper. It also does not treat its own metadata as canonical Graph/Effects evidence. Preview interpolation and editorial advice remain distinguishable from native measurement. Unsupported Film curves, missing assets and missing native services are explicit errors/statuses rather than silently discarded work.
+
+`src/production.mjs` is the bounded canonical connection used by the explicit `scripts/native-render.mjs` operator path. It is intentionally **not imported by the HTTP server** and is not an end-user rendering API. The connection requires an owner-selected canonical CLI digest, socket/session and output root; provenance from every Motion Canvas/MLT call is checked before it is admitted to the receipt. Interactive job control remains unfinished as described in [STATUS.md](STATUS.md).
+
+Project-scoped Impeccable design guidance is installed in the development workspace, with its source recorded in `SOURCE_LOCK.json`; no global agent configuration is changed. [Design decisions and references](docs/DESIGN.md).
 
 ## License
 
-Sequencewright is **AGPL-3.0-only**. Official vendored Semwright binding code retains its MIT OR Apache-2.0 licenses. Impeccable is installed at project scope and retains its own upstream terms. No upstream license is replaced by the application's license. See `THIRD_PARTY_NOTICES.md`.
+Application source: **AGPL-3.0-only**, in [LICENSE](LICENSE). Vendored Semwright SDK code retains its upstream MIT/Apache-2.0 licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). No third-party font binaries or private specification materials are distributed in this source package.

@@ -1,0 +1,14 @@
+{
+  "status": "PASS",
+  "checks": [
+    "real canonical provider provenance",
+    "Native SDK edit visible through UI HTTP",
+    "UI edit visible through isolated Driver Host",
+    "durable historical recovery without current authority",
+    "daemon restart preserves application identity and contents",
+    "Host references renewed after restart"
+  ],
+  "rendering": "NOT_RUN",
+  "graph_admission": "NOT_RUN",
+  "effects": "NOT_RUN"
+}
