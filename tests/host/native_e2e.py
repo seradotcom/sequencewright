@@ -35,7 +35,7 @@ def request_digest(operation, expected, key, parameters):
 
 class OwnedFixture:
     def __init__(self):
-        self.root = ROOT / '.cache/host-e2e' / uuid.uuid4().hex
+        self.root = Path(os.environ['RUNNER_TEMP']) / ('sw-host-' + uuid.uuid4().hex[:12])
         self.root.mkdir(parents=True, mode=0o700)
         self.paths = {}
         for name in ['runtime', 'state', 'home', 'config', 'binary', 'data', 'bundle']:
@@ -48,6 +48,7 @@ class OwnedFixture:
         self.logs = []
         self.session = self.paths['runtime'] / 'session-1'
         self.socket = self.paths['runtime'] / 'broker.sock'
+        assert len(os.fsencode(self.socket)) < 104, 'Owned Unix socket path must fit sockaddr_un'
         self.env = {k: v for k, v in os.environ.items() if k not in ['DISPLAY', 'WAYLAND_DISPLAY', 'DBUS_SESSION_BUS_ADDRESS']}
         self.env.update(HOME=str(self.paths['home']), XDG_STATE_HOME=str(self.paths['state']), XDG_RUNTIME_DIR=str(self.paths['runtime']))
         node = self.paths['binary'] / 'node-runtime'
