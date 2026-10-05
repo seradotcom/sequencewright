@@ -13,6 +13,7 @@ export function createStudio({root=process.env.SEQUENCEWRIGHT_DATA??'.data',port
  const store=new Store(root,{seed,actor:'local-editor'});const csrf=randomBytes(32).toString('hex');const session=randomBytes(32).toString('hex');
  const app=store.application();let closing=false;
  function send(res,status,data,headers={}){res.writeHead(status,{'content-type':'application/json; charset=utf-8',...headers});res.end(typeof data==='string'?data:JSON.stringify(data));}
+ function requireCsrf(req){const supplied=Buffer.from(String(req.headers['x-sequencewright-csrf']??'')),expected=Buffer.from(csrf);if(supplied.length!==expected.length||!timingSafeEqual(supplied,expected))throw new NativeError('PermissionDenied','Missing session CSRF token');}
  const server=createServer(async(req,res)=>{
   res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('Cache-Control','no-store');res.setHeader('Cross-Origin-Resource-Policy','same-origin');res.setHeader('X-Frame-Options','DENY');
   res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; media-src 'self' blob:; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; object-src 'none'");
@@ -35,9 +36,17 @@ export function createStudio({root=process.env.SEQUENCEWRIGHT_DATA??'.data',port
    if(req.method==='GET'&&url.pathname==='/api/events'){
     const resource=url.searchParams.get('resource');const cursor=Number(url.searchParams.get('after')??0);if(!Number.isSafeInteger(cursor)||cursor<0)throw new NativeError('InvalidArgument','Invalid event cursor');store.current(resource);const items=store.db.prepare('SELECT * FROM events WHERE resource=? AND seq>? ORDER BY seq LIMIT 100').all(resource,cursor);send(res,200,{items,next:items.at(-1)?.seq??cursor,historical_hints_only:true});return;
    }
+   if(req.method==='POST'&&url.pathname==='/api/assets'){
+    requireCsrf(req);const header=String(req.headers['x-sequencewright-asset']??'');if(!header||Buffer.byteLength(header)>12000)throw new NativeError('InvalidArgument','Asset metadata header is missing or too large');
+    let metadata;try{metadata=JSON.parse(decodeURIComponent(header));}catch{throw new NativeError('InvalidArgument','Malformed asset metadata');}validateValue(metadata);
+    if(!metadata||typeof metadata!=='object'||Array.isArray(metadata)||!Object.keys(metadata).every(k=>['resource','expected','key','asset'].includes(k))||!['resource','expected','key','asset'].every(k=>Object.hasOwn(metadata,k)))throw new NativeError('InvalidArgument','Invalid asset upload envelope');
+    const mime=String(req.headers['content-type']??'').split(';',1)[0].trim().toLowerCase();if(!['image/png','image/jpeg','image/webp','audio/wav','audio/mpeg','video/mp4'].includes(mime))throw new NativeError('InvalidArgument','Unsupported asset Content-Type');
+    const declared=Number(req.headers['content-length']??0);if(declared&&(!Number.isSafeInteger(declared)||declared<1||declared>16*1024*1024))throw new NativeError('ResourceExhausted','Asset exceeds the 16 MiB local project budget');
+    let size=0;const parts=[];for await(const chunk of req){size+=chunk.length;if(size>16*1024*1024)throw new NativeError('ResourceExhausted','Asset exceeds the 16 MiB local project budget');parts.push(chunk);}if(size<1)throw new NativeError('InvalidArgument','Asset body is empty');
+    const result=store.attachAssetBytes(metadata.resource,metadata.expected,metadata.key,metadata.asset,Buffer.concat(parts),mime);send(res,200,{ok:true,data:result});return;
+   }
    if(req.method==='POST'&&url.pathname==='/api/call'){
-    if(req.headers['content-type']!=='application/json')throw new NativeError('InvalidArgument','Content-Type must be application/json');
-    const supplied=Buffer.from(String(req.headers['x-sequencewright-csrf']??''));const expected=Buffer.from(csrf);if(supplied.length!==expected.length||!timingSafeEqual(supplied,expected))throw new NativeError('PermissionDenied','Missing session CSRF token');
+    if(req.headers['content-type']!=='application/json')throw new NativeError('InvalidArgument','Content-Type must be application/json');requireCsrf(req);
     let size=0;const parts=[];for await(const chunk of req){size+=chunk.length;if(size>256*1024)throw new NativeError('ResourceExhausted','Request exceeds native transport budget');parts.push(chunk);}
     let raw;try{raw=JSON.parse(Buffer.concat(parts));}catch{throw new NativeError('InvalidArgument','Malformed JSON');}validateValue(raw);
     if(!raw||typeof raw.operation!=='string'||!Object.keys(raw).every(k=>['operation','expected','parameters','key','identity'].includes(k)))throw new NativeError('InvalidArgument','Invalid call envelope');

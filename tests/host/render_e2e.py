@@ -2,11 +2,16 @@
 """Native pixels from three actual Sequencewright projects; disposable CI only."""
 from __future__ import annotations
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
 import shutil
+import struct
 import subprocess
+import urllib.parse
+import urllib.request
+import wave
 import native_e2e as host
 
 ROOT=Path(__file__).resolve().parents[2]
@@ -72,6 +77,29 @@ def prepare_motion(fixture,resource):
     return connection
 
 
+def synthetic_wav(frame_count,fps):
+    numerator=frame_count*48_000*fps['den'];assert numerator%fps['num']==0
+    sample_frames=numerator//fps['num']
+    cycle=b''.join(struct.pack('<hh',12000 if i<60 else -12000,12000 if i<60 else -12000) for i in range(120))
+    pcm=(cycle*((sample_frames+119)//120))[:sample_frames*4]
+    out=io.BytesIO()
+    with wave.open(out,'wb') as wav:
+        wav.setnchannels(2);wav.setsampwidth(2);wav.setframerate(48_000);wav.writeframes(pcm)
+    return out.getvalue(),sample_frames
+
+
+def upload_synthetic_audio(fixture,resource,current,kind):
+    frame_count=sum(scene['duration'] for scene in current['document']['scenes'] if not scene.get('archived'))
+    audio,sample_frames=synthetic_wav(frame_count,current['document']['profile']['fps'])
+    asset_id='ci-voice-'+kind
+    metadata={'resource':resource,'expected':current['version'],'key':'ci-audio-'+kind,'asset':{'id':asset_id,'name':'Synthetic CI voice '+kind+'.wav','license':'Synthetic CI fixture; not distributed as product media','provenance':'Generated deterministically on the disposable GitHub Actions runner to verify the native audio handoff.'}}
+    request=urllib.request.Request(fixture.base+'/api/assets',data=audio,headers={'Content-Type':'audio/wav','x-sequencewright-csrf':fixture.csrf,'x-sequencewright-asset':urllib.parse.quote(json.dumps(metadata,separators=(',',':')),safe='')},method='POST')
+    value=json.load(fixture.http.open(request,timeout=30));assert value['ok'],value
+    asset=value['data']['metadata']['asset'];assert asset['id']==asset_id and asset['bytes']==len(audio) and asset['mime']=='audio/wav'
+    assert asset['sha256']==hashlib.sha256(audio).hexdigest()
+    return {'id':asset_id,'version':value['data']['version'],'sampleFrames':sample_frames,'sha256':asset['sha256']}
+
+
 def run():
     assert os.environ.get('GITHUB_ACTIONS')=='true','Native rendering belongs on an explicitly provisioned disposable runner'
     EVIDENCE.mkdir(parents=True,exist_ok=True)
@@ -86,24 +114,44 @@ def run():
             scene=observed['page']['items'][0]['scenes'][0]
             args=fixture.mutation(observed,'object.update','production-title-'+kind,{'sceneId':scene['id'],'objectId':scene['objects'][1]['id'],'changes':{'text':'Created through the Native SDK.'}})
             edited=fixture.invoke('object.update',args)
-            assert fixture.ui_call('document.read',{'resource':resource})['version']==edited['version']
+            current=fixture.ui_call('document.read',{'resource':resource});assert current['version']==edited['version']
+            audio=None
+            if kind=='product':
+                audio=upload_synthetic_audio(fixture,resource,current,kind)
+                native_after_upload=fixture.invoke('observe',{'resource':resource,'scope':'document','limit':1})
+                assert native_after_upload['page']['version']==audio['version']
+                assert any(asset['id']==audio['id'] and asset['sha256']==audio['sha256'] for asset in native_after_upload['page']['items'][0]['assets'])
+                current=fixture.ui_call('document.read',{'resource':resource});assert current['version']==audio['version']
             destination=EVIDENCE/kind
-            result=subprocess.run([str(fixture.node),str(ROOT/'scripts/native-render.mjs'),'--connection',str(connection),'--data',str(fixture.paths['data']),'--resource',resource,'--output',str(destination),'--typography','motion-pinned'],env=fixture.env,capture_output=True,text=True,timeout=900)
+            command=[str(fixture.node),str(ROOT/'scripts/native-render.mjs'),'--connection',str(connection),'--data',str(fixture.paths['data']),'--resource',resource,'--output',str(destination),'--typography','motion-pinned']
+            if audio:command+=['--audio-asset',audio['id']]
+            result=subprocess.run(command,env=fixture.env,capture_output=True,text=True,timeout=900)
             (EVIDENCE/(kind+'-cli.log')).write_text(result.stdout+'\n'+result.stderr)
             assert result.returncode==0,result.stderr+result.stdout
             receipt=json.loads((destination/'receipt.json').read_text())
             assert receipt['completed'] and receipt['render']=='SUCCEEDED' and receipt['mlt']=='SUCCEEDED' and receipt['range']['fullSequence']
-            assert receipt['sourceVersion']==edited['version']
+            assert receipt['sourceVersion']==current['version']
             assert receipt['nativeVerification']['report']['support_level']=='native'
             assert receipt['nativeVerification']['measurement']['coverage']['font_resources_digest']
             mezzanine=receipt['mezzanine'];assert mezzanine['codec']=='ffv1' and mezzanine['container']=='matroska' and mezzanine['frame_count']>0
             assert mezzanine['media']['video'] is True and mezzanine['media']['audio'] is False and mezzanine['artifact']['bytes']>0
             mlt_calls=[call for call in receipt['calls'] if call['command']=='driver.mlt-video.frames.encode']
             assert len(mlt_calls)==1 and mlt_calls[0]['execution']['provenance']['provider']=='driver:mlt-video'
-            assert fixture.ui_call('document.read',{'resource':resource})['version']==edited['version'],'Rendering must not rewrite the application document'
+            audio_result='NOT_RUN';master_summary=None
+            if audio:
+                assert receipt['audio']['state']=='VERIFIED_IN_FINAL_MASTER' and receipt['delivery']=='SUCCEEDED'
+                assert receipt['audio']['media']['sampleFrames']==audio['sampleFrames']
+                master=receipt['master'];assert master['profile']=='h264-aac-mp4' and master['media']['video'] is True and master['media']['audio'] is True
+                assert master['audio_sha256']==audio['sha256'] and master['video_sha256']==mezzanine['artifact']['sha256']
+                mux_calls=[call for call in receipt['calls'] if call['command']=='driver.mlt-video.av.mux']
+                assert len(mux_calls)==1 and mux_calls[0]['execution']['provenance']['provider']=='driver:mlt-video'
+                audio_result='PASS';master_summary={'profile':master['profile'],'sha256':master['artifact']['sha256'],'bytes':master['artifact']['bytes'],'decodedAudioSha256':master['decoded_audio']['sha256']}
+            else:
+                assert receipt['audio']['state']=='NOT_RUN' and receipt['delivery']=='NOT_RUN'
+            assert fixture.ui_call('document.read',{'resource':resource})['version']==current['version'],'Rendering must not rewrite the application document'
             manifest=json.loads((destination/'artifact-manifest.json').read_text())
             assert manifest['renderer']=='motion-canvas-core-renderer-v3.17.2'
-            results.append({'project':kind,'sourceVersion':edited['version'],'frameCount':len(manifest['frames']),'render':'PASS','nativeMeasurement':'completed','typography':'explicit motion-pinned profile','effects':'NOT_RUN','audio':'NOT_RUN','mlt':'PASS','mezzanine':{'codec':mezzanine['codec'],'container':mezzanine['container'],'sha256':mezzanine['artifact']['sha256'],'bytes':mezzanine['artifact']['bytes']}})
+            results.append({'project':kind,'sourceVersion':current['version'],'frameCount':len(manifest['frames']),'render':'PASS','nativeMeasurement':'completed','typography':'explicit motion-pinned profile','effects':'NOT_RUN','audio':audio_result,'delivery':'PASS' if audio else 'NOT_RUN','mlt':'PASS','mezzanine':{'codec':mezzanine['codec'],'container':mezzanine['container'],'sha256':mezzanine['artifact']['sha256'],'bytes':mezzanine['artifact']['bytes']},'master':master_summary})
         finally:
             fixture.close()
     (EVIDENCE/'result.json').write_text(json.dumps({'sourceSha':subprocess.check_output(['git','-C',str(ROOT),'rev-parse','HEAD'],text=True).strip(),'sdkSha':'4d291de26724810017ce7b6d185326514cb79fa6','status':'PASS','projects':results},indent=2))
