@@ -11,7 +11,10 @@ export function toFilm(doc){
   need(s.renderer==='motion_canvas','This canonical Film projection supports Motion Canvas scenes only; select an explicit different production route','Unsupported');
   const sid=safeId(s.id),seq=`seq-${sid}`,shot=`shot-${sid}`;spans.push(span(`time-${seq}`,start,s.duration),span(`time-${shot}`,start,s.duration));const motion=[];
   const subjects=s.objects.filter(o=>!o.archived).map(o=>{
-   const oid=`${sid}-${safeId(o.id)}`;need(!['image','video'].includes(o.kind)||o.opacity===1000,'Media opacity needs a tested canonical primitive mapping','Unsupported');need(o.rotation===0,'Static rotation requires a tested canonical primitive mapping','Unsupported');let content;
+   // Motion authoring permits 96-byte logical IDs, but the canonical Motion Canvas
+   // projection also validates them as native project node IDs (max 64 bytes). Hash
+   // the scene/object pair into one stable identity instead of concatenating hashes.
+   const oid=safeId(`object:${s.id}\u0000${o.id}`);need(!['image','video'].includes(o.kind)||o.opacity===1000,'Media opacity needs a tested canonical primitive mapping','Unsupported');need(o.rotation===0,'Static rotation requires a tested canonical primitive mapping','Unsupported');let content;
    if(o.kind==='text'){const style=`size-${o.fontSize}`;type_scale[style]=o.fontSize;content={kind:'text',runs:[{text:o.text,weight:o.weight,color:alpha(o.fill,o.opacity),emphasis:false}],style,direction:'auto',language:'en',wrap:true,truncate:false};}
    else if(o.kind==='rectangle'||o.kind==='line')content={kind:'rectangle',fill:alpha(o.fill,o.opacity),stroke:null,radius:0};
    else if(o.kind==='circle')content={kind:'circle',fill:alpha(o.fill,o.opacity),stroke:null};
