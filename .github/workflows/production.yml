@@ -1,7 +1,7 @@
 name: Native production pixels
 on:
   push:
-    paths: ['scripts/native-render.mjs', 'src/production.mjs', 'src/projection.mjs', 'tests/host/render_e2e.py', '.github/workflows/production.yml']
+    paths: ['scripts/native-render.mjs', 'scripts/bundle-native.mjs', 'src/**', 'native/**', 'contracts/**', 'tests/host/**', 'package*.json', '.github/workflows/production.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -16,7 +16,6 @@ env:
   SEMWRIGHT_SOURCE: ${{ github.workspace }}/upstream
   SEMWRIGHT_TEST_DRIVER_SANDBOX: '1'
   SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/upstream/target/debug/semwright-sandbox
-  SEMWRIGHT_TEST_MOTION_NODE: ${{ runner.temp }}/sequencewright-motion-node
 jobs:
   native-pixels:
     runs-on: ubuntu-24.04
@@ -43,6 +42,7 @@ jobs:
           cache-on-failure: true
       - name: Exact sources and owner-scoped sandbox setup
         run: |
+          echo "SEMWRIGHT_TEST_MOTION_NODE=$RUNNER_TEMP/sequencewright-motion-node" >> "$GITHUB_ENV"
           test "$(git rev-parse HEAD)" = "${{ github.sha }}"
           test "$(git -C upstream rev-parse HEAD)" = 4d291de26724810017ce7b6d185326514cb79fa6
           test "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" = 1

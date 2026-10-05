@@ -28,7 +28,7 @@ async function main(){
  require(Number.isSafeInteger(frames)&&frames>0&&frames<=duration(source.document)&&frames<=config.maxFrames,'Frame range exceeds the source sequence or owner production budget');
  const output=resolve(options.output);require(!existsSync(output),'Use a new evidence directory; existing files are preserved');mkdirSync(output,{mode:0o700});
  const receipt={schema:'sequencewright/native-render/1',resource:options.resource,sourceVersion:source.version,sourceDocumentSha256:sha(JSON.stringify(source.document)),filmSha256:sha(JSON.stringify(film)),typography:{profile:'motion-pinned',source:originalFonts,output:{font:film.editorial.font,monoFont:film.editorial.mono_font},requiresCreativeReview:true},range:{firstFrame:0,endFrameExclusive:frames,fullSequence:frames===duration(source.document)},calls:[],render:'NOT_RUN',effects:'NOT_RUN',graph:'UNKNOWN'};
- writeFileSync(join(output,'film.json'),JSON.stringify(film,null,2),{flag:'wx'});
+ writeFileSync(join(output,'film.json'),JSON.stringify(film),{flag:'wx'});
  const save=()=>writeFileSync(join(output,'receipt.json'),JSON.stringify(receipt,null,2));
  const call=async(name,parameters,mutation=false)=>{const started=performance.now();const value=await client.execute('driver.motion-canvas.'+name,parameters,{mutation});receipt.calls.push({command:'driver.motion-canvas.'+name,durationMs:Math.round(performance.now()-started),...value});save();return value.data;};
  let interrupted=false;const interrupt=()=>{interrupted=true;};process.on('SIGINT',interrupt);process.on('SIGTERM',interrupt);
@@ -52,7 +52,7 @@ async function main(){
   const root=realpathSync(config.outputRoot),directory=realpathSync(join(root,artifact.directory));require(directory.startsWith(root+'/'),'Native artifact is outside the owner-selected output root');
   const manifestPath=join(directory,'artifact-manifest.json');require(lstatSync(manifestPath).size<=16*1024*1024,'Native manifest exceeds the evidence budget');const bytes=readFileSync(manifestPath);require(sha(bytes)===artifact.manifest_sha256,'Native manifest digest differs from its canonical receipt');
   const manifest=JSON.parse(bytes);require(manifest.frames.length===frames,'Native frame manifest count is inconsistent');writeFileSync(join(output,'artifact-manifest.json'),bytes,{flag:'wx'});
-  for(const index of new Set([0,Math.floor(frames/2),frames-1])){
+  for(const index of new Set([0,Math.min(30,frames-1),Math.floor(frames/2),frames-1])){
    const frame=manifest.frames[index];require(/^frames\/\d{6}\.png$/.test(frame.file),'Unexpected native PNG name');
    const path=join(directory,frame.file);const st=lstatSync(path);require(st.isFile()&&!st.isSymbolicLink()&&st.size===frame.bytes&&st.size<=32*1024*1024,'Native sample metadata mismatch');
    require(realpathSync(path).startsWith(directory+'/frames/'),'Native PNG is outside its artifact directory');const png=readFileSync(path);require(sha(png)===frame.sha256,'Native PNG digest mismatch');writeFileSync(join(output,`native-${index}.png`),png,{flag:'wx'});
