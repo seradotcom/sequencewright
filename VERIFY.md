@@ -83,6 +83,12 @@ Exact-SHA remote evidence for `e84fcc3`:
 
 The verified Graph result is `ADMITTED_DECLARATIONS`: source/render/delivery evidence files are registered and readable from canonical Graph, while each relationship explicitly remains `execution_certified=false`. This does **not** claim the trusted `ReceiptAdapter`/host admission path used by Semwright internals.
 
+## Canonical Effect Conformance candidate
+
+Branch `feat/canonical-effects` adds a second independent readback stage using the Native SDK `semwright-native-effects` executable built from the same pinned Semwright source. The helper is SHA-256 pinned in owner configuration, prepares the canonical Effect specification itself, reopens immutable evidence independently and returns the canonical Effect evaluation. Sequencewright rejects anything except a fully evaluated `PASS` for this bounded contract and also requires `execution_authority=false` plus `read_only` support.
+
+The visual profile precommits 10 scalar checks over source Film, Motion native-manifest and MLT mezzanine evidence. The AV profile adds 9 checks over the input-audio and final-master references. These checks do not reinterpret application metadata as observations and do not turn declared producer execution status into verification authority. Local bounded checks on the candidate report **65 application tests, 0 failures**; native Effect execution remains a disposable-runner acceptance requirement, so exact-SHA workflow IDs are added only after that candidate completes remotely.
+
 ## What these checks do not establish
 
-A successful production lane does not by itself establish trusted Project Graph execution-receipt admission, independent Effect Conformance, human creative approval, transcript synchronization, multi-track mixing, Blender/Manim support, signed installers or commercial release readiness. These remain explicit limitations in [STATUS.md](STATUS.md).
+A successful production lane does not by itself establish trusted Project Graph execution-receipt admission, exhaustive native geometry/pixel/typography Effect coverage, loudness/dynamics or cue/transcript alignment, human creative approval, multi-track mixing, Blender/Manim support, signed installers or commercial release readiness. These remain explicit limitations in [STATUS.md](STATUS.md).
