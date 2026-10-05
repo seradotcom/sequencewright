@@ -1,0 +1,13 @@
+import {build} from 'esbuild';
+import {readFileSync,mkdirSync,writeFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+import {emitContracts} from './contracts.mjs';
+mkdirSync('dist',{recursive:true});
+await build({entryPoints:['src/native-entry.mjs'],outfile:'dist/sequencewright.cjs',bundle:true,platform:'node',target:'node24',format:'cjs',minify:true,legalComments:'none',logLevel:'info'});
+const bytes=readFileSync('dist/sequencewright.cjs');
+if(bytes.length>48*1024)throw new Error(`Native SDK bundle limit exceeded: ${bytes.length} > 49152 bytes`);
+const sha=createHash('sha256').update(bytes).digest('hex');
+writeFileSync('dist/binding.json',JSON.stringify({schema:'sequencewright/native-binding/1',bundle:'sequencewright.cjs',sha256:sha,bytes:bytes.length,node:'24.21.0',sdk_revision:'4d291de26724810017ce7b6d185326514cb79fa6',scope:'owner-pinned application runtime; Host grants still required'},null,2)+'\n');
+writeFileSync('dist/bundle.sha256',sha+'\n');
+emitContracts();
+console.log(`SEQUENCEWRIGHT_NATIVE_BUNDLE_SHA256=${sha}`);
