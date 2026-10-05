@@ -4,6 +4,7 @@ import {join,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {randomBytes,timingSafeEqual} from 'node:crypto';
 import {Store,envelope,capabilities} from './store.mjs';
+import {attachAssetBytes} from './local-assets.mjs';
 import {NativeError,applicationContext,dispatchApplication,validateValue} from '../vendor/semwright-native-sdk/index.mjs';
 import {NAMESPACE,MUTATIONS,READS} from './contracts.mjs';
 const here=dirname(fileURLToPath(import.meta.url));
@@ -43,7 +44,7 @@ export function createStudio({root=process.env.SEQUENCEWRIGHT_DATA??'.data',port
     const mime=String(req.headers['content-type']??'').split(';',1)[0].trim().toLowerCase();if(!['image/png','image/jpeg','image/webp','audio/wav','audio/mpeg','video/mp4'].includes(mime))throw new NativeError('InvalidArgument','Unsupported asset Content-Type');
     const declared=Number(req.headers['content-length']??0);if(declared&&(!Number.isSafeInteger(declared)||declared<1||declared>16*1024*1024))throw new NativeError('ResourceExhausted','Asset exceeds the 16 MiB local project budget');
     let size=0;const parts=[];for await(const chunk of req){size+=chunk.length;if(size>16*1024*1024)throw new NativeError('ResourceExhausted','Asset exceeds the 16 MiB local project budget');parts.push(chunk);}if(size<1)throw new NativeError('InvalidArgument','Asset body is empty');
-    const result=store.attachAssetBytes(metadata.resource,metadata.expected,metadata.key,metadata.asset,Buffer.concat(parts),mime);send(res,200,{ok:true,data:result});return;
+    const result=attachAssetBytes(store,metadata.resource,metadata.expected,metadata.key,metadata.asset,Buffer.concat(parts),mime);send(res,200,{ok:true,data:result});return;
    }
    if(req.method==='POST'&&url.pathname==='/api/call'){
     if(req.headers['content-type']!=='application/json')throw new NativeError('InvalidArgument','Content-Type must be application/json');requireCsrf(req);
