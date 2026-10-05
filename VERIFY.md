@@ -69,9 +69,19 @@ The production lane uses three actual Sequencewright project fixtures. The produ
 
 ## Canonical Graph candidate
 
-The current `feat/canonical-evidence` candidate extends the production operator path with Semwright Core `project.create`, `project.asset.register`, `project.edge.declare`, `project.query`, `project.asset.provenance` and `project.impact`. Local bounded checks pass with **65 application tests, 0 failures** and the Native bridge remains approximately **47.6 KiB**. Native Motion/MLT + Graph execution is intentionally reserved for the disposable GitHub Actions runner; exact-SHA run identifiers are recorded only after that candidate completes remotely.
+Commit `e84fcc3cefc791bbd46586fbae61021666aad9ae` extends the production operator path with Semwright Core `project.create`, `project.asset.register`, `project.edge.declare`, `project.query`, `project.asset.provenance` and `project.impact`. Local bounded checks passed with **65 application tests, 0 failures** and the Native bridge remained approximately **47.6 KiB**.
 
-The expected Graph result is `ADMITTED_DECLARATIONS`: source/render/delivery evidence files are registered and readable from canonical Graph, while each relationship explicitly remains `execution_certified=false`. This does **not** claim the trusted `ReceiptAdapter`/host admission path used by Semwright internals.
+Exact-SHA remote evidence for `e84fcc3`:
+
+| Workflow | Run | Result |
+| --- | ---: | --- |
+| Native production pixels | 37353753774 | SUCCESS — all three real project fixtures registered/read back canonical Graph evidence. |
+| Native SDK and canonical compiler | 37353753897 | SUCCESS |
+| Real UI and Native SDK Host | 37353753891 | SUCCESS |
+| Studio behavior and visual evidence | 37353753873 | SUCCESS |
+| Source package | 37353753947 | SUCCESS |
+
+The verified Graph result is `ADMITTED_DECLARATIONS`: source/render/delivery evidence files are registered and readable from canonical Graph, while each relationship explicitly remains `execution_certified=false`. This does **not** claim the trusted `ReceiptAdapter`/host admission path used by Semwright internals.
 
 ## What these checks do not establish
 
