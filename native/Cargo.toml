@@ -1,0 +1,27 @@
+[package]
+name = "sequencewright-native"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "AGPL-3.0-only"
+publish = false
+
+[dependencies]
+semwright-native-sdk = { git = "https://github.com/seradotcom/semwright", rev = "4d291de26724810017ce7b6d185326514cb79fa6", features = ["process-bridge"] }
+semwright-motion-authoring = { git = "https://github.com/seradotcom/semwright", rev = "4d291de26724810017ce7b6d185326514cb79fa6" }
+semwright-semantic-composition = { git = "https://github.com/seradotcom/semwright", rev = "4d291de26724810017ce7b6d185326514cb79fa6" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt", "io-std", "io-util"] }
+
+[[bin]]
+name = "sequencewright-driver"
+path = "src/main.rs"
+
+[[bin]]
+name = "sequencewright-compile"
+path = "src/compile.rs"
+
+[profile.dev]
+debug = 0
+incremental = false

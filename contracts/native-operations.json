@@ -1,0 +1,2251 @@
+[
+  {
+    "name": "driver.sequencewright.document.edit",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string",
+              "maxLength": 12000
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 12000
+            },
+            "profile": {
+              "type": "object",
+              "maxProperties": 64
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.scene.add",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "scene": {
+              "type": "object",
+              "maxProperties": 64
+            },
+            "afterId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "scene"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.scene.update",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "sceneId": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "changes": {
+              "type": "object",
+              "maxProperties": 64
+            }
+          },
+          "required": [
+            "sceneId",
+            "changes"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.scene.reorder",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "order": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 128,
+                "minLength": 1
+              },
+              "maxItems": 512
+            }
+          },
+          "required": [
+            "order"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.scene.archive",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "sceneId": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "archived": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "sceneId",
+            "archived"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.object.add",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "sceneId": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "object": {
+              "type": "object",
+              "maxProperties": 64
+            }
+          },
+          "required": [
+            "sceneId",
+            "object"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.object.update",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "sceneId": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "objectId": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "changes": {
+              "type": "object",
+              "maxProperties": 64
+            }
+          },
+          "required": [
+            "sceneId",
+            "objectId",
+            "changes"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.object.archive",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "sceneId": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "objectId": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "archived": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "sceneId",
+            "objectId",
+            "archived"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.keyframe.set",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "sceneId": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "objectId": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "keyframe": {
+              "type": "object",
+              "maxProperties": 64
+            }
+          },
+          "required": [
+            "sceneId",
+            "objectId",
+            "keyframe"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.keyframe.remove",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "sceneId": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "objectId": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "frame": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "property": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            }
+          },
+          "required": [
+            "sceneId",
+            "objectId",
+            "frame",
+            "property"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.caption.set",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "caption": {
+              "type": "object",
+              "maxProperties": 64
+            }
+          },
+          "required": [
+            "caption"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.caption.remove",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "captionId": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            }
+          },
+          "required": [
+            "captionId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.brief.update",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "audience": {
+              "type": "string",
+              "maxLength": 12000
+            },
+            "objective": {
+              "type": "string",
+              "maxLength": 12000
+            },
+            "promise": {
+              "type": "string",
+              "maxLength": 12000
+            },
+            "tone": {
+              "type": "string",
+              "maxLength": 12000
+            },
+            "constraints": {
+              "type": "string",
+              "maxLength": 12000
+            },
+            "references": {
+              "type": "string",
+              "maxLength": 12000
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.lock.set",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "scope": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 12000
+            }
+          },
+          "required": [
+            "scope",
+            "reason"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.lock.release",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "scope": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            }
+          },
+          "required": [
+            "scope"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.proposal.create",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "title": {
+              "type": "string",
+              "maxLength": 12000
+            },
+            "rationale": {
+              "type": "string",
+              "maxLength": 12000
+            },
+            "scope": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "changes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "maxProperties": 64
+              },
+              "maxItems": 512
+            },
+            "provider": {
+              "type": "string",
+              "maxLength": 12000
+            },
+            "constraints": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 12000
+              },
+              "maxItems": 512
+            }
+          },
+          "required": [
+            "id",
+            "title",
+            "rationale",
+            "scope",
+            "changes",
+            "provider",
+            "constraints"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.proposal.apply",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "proposalId": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            }
+          },
+          "required": [
+            "proposalId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.proposal.reject",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "proposalId": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            }
+          },
+          "required": [
+            "proposalId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.branch.fork",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.branch.merge",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "sourceVersion": {
+              "type": "object",
+              "maxProperties": 64
+            },
+            "resolutions": {
+              "type": "object",
+              "maxProperties": 64
+            }
+          },
+          "required": [
+            "source",
+            "sourceVersion",
+            "resolutions"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.history.restore",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            }
+          },
+          "required": [
+            "revision"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.review.add",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "sceneId": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "objectId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "frame": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "text": {
+              "type": "string",
+              "maxLength": 12000
+            },
+            "category": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            }
+          },
+          "required": [
+            "id",
+            "sceneId",
+            "frame",
+            "text",
+            "category"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.review.resolve",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "reviewId": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "resolved": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "reviewId",
+            "resolved"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.asset.attach",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "asset": {
+              "type": "object",
+              "maxProperties": 64
+            },
+            "blob": {
+              "type": "object",
+              "maxProperties": 64
+            }
+          },
+          "required": [
+            "asset",
+            "blob"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.delivery.profile",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 12000
+            },
+            "width": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "captions": {
+              "type": "boolean"
+            },
+            "language": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "width",
+            "height",
+            "captions",
+            "language"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.project.create",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string",
+              "maxLength": 12000
+            },
+            "template": {
+              "enum": [
+                "product",
+                "lesson",
+                "brand"
+              ]
+            }
+          },
+          "required": [
+            "title"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.project.import",
+    "mutation": true,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "resource": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "epoch": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "resource",
+            "epoch",
+            "key",
+            "request_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "document": {
+              "type": "object",
+              "maxProperties": 64
+            },
+            "blobs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "maxProperties": 64
+              },
+              "maxItems": 512
+            }
+          },
+          "required": [
+            "document"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ref",
+        "request",
+        "parameters"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.document.read",
+    "mutation": false,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "resource": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "revision": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.history.list",
+    "mutation": false,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "resource": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.branch.list",
+    "mutation": false,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "resource": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.branch.compare",
+    "mutation": false,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "resource": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "other": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "required": [
+        "ref",
+        "other"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.proposal.list",
+    "mutation": false,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "resource": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.review.list",
+    "mutation": false,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "resource": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.project.list",
+    "mutation": false,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "resource": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.document.export",
+    "mutation": false,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "resource": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "format": {
+          "enum": [
+            "archive",
+            "film",
+            "srt",
+            "vtt"
+          ]
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.context.read",
+    "mutation": false,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "resource": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "sceneId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "objectId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "driver.sequencewright.capabilities.read",
+    "mutation": false,
+    "input": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "resource": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    }
+  }
+]
