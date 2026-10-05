@@ -67,6 +67,12 @@ Exact-SHA remote evidence:
 
 The production lane uses three actual Sequencewright project fixtures. The product fixture generates a deterministic synthetic 48 kHz stereo PCM WAV on the disposable runner, imports it through the loopback binary endpoint, confirms that the canonical Native SDK driver observes the resulting application revision, renders Motion Canvas through Semwright, encodes the digest-bound FFV1 mezzanine through `driver.mlt-video.frames.encode`, and calls `driver.mlt-video.av.mux`. The final H.264/AAC MP4 and the WAV decoded back from that same master are checked against canonical returned byte counts and SHA-256 digests. Lesson and brand fixtures keep exercising the visual-only route. The synthetic CI audio is a verification fixture and is not distributed as product media.
 
+## Canonical Graph candidate
+
+The current `feat/canonical-evidence` candidate extends the production operator path with Semwright Core `project.create`, `project.asset.register`, `project.edge.declare`, `project.query`, `project.asset.provenance` and `project.impact`. Local bounded checks pass with **65 application tests, 0 failures** and the Native bridge remains approximately **47.6 KiB**. Native Motion/MLT + Graph execution is intentionally reserved for the disposable GitHub Actions runner; exact-SHA run identifiers are recorded only after that candidate completes remotely.
+
+The expected Graph result is `ADMITTED_DECLARATIONS`: source/render/delivery evidence files are registered and readable from canonical Graph, while each relationship explicitly remains `execution_certified=false`. This does **not** claim the trusted `ReceiptAdapter`/host admission path used by Semwright internals.
+
 ## What these checks do not establish
 
-A successful production lane does not by itself establish canonical Graph admission, independent Effect Conformance, human creative approval, transcript synchronization, multi-track mixing, Blender/Manim support, signed installers or commercial release readiness. These remain explicit limitations in [STATUS.md](STATUS.md).
+A successful production lane does not by itself establish trusted Project Graph execution-receipt admission, independent Effect Conformance, human creative approval, transcript synchronization, multi-track mixing, Blender/Manim support, signed installers or commercial release readiness. These remain explicit limitations in [STATUS.md](STATUS.md).

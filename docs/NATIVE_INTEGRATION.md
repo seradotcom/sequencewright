@@ -64,7 +64,7 @@ Use its actual returned native reference, source version and the SDK's exact req
 
 `scripts/native-render.mjs` is separate, explicit operator tooling for an already provisioned Motion Canvas workspace. It is not an HTTP rendering endpoint or a background worker installed by the editor. It requires an owner-created connection file, a matching canonical CLI executable digest and a renderer workspace already registered in the same canonical Broker.
 
-The connection schema is `sequencewright/connection/1`, with absolute `executable`, `socket`, `session` and `outputRoot` paths, `executableSha256`, a single allowed application `resource`, and an optional `maxFrames` budget (at most 18,000). The file and its selected paths must be owner-controlled. Keep connection files out of Git.
+The connection schema is `sequencewright/connection/1`, with absolute `executable`, `socket`, `session` and `outputRoot` paths, `executableSha256`, a single allowed application `resource`, an optional `maxFrames` budget (at most 18,000), and optional `graphRoot`. `graphRoot` is the name of an already granted canonical Semwright filesystem root, not a raw path. The file and its selected paths must be owner-controlled. Keep connection files out of Git.
 
 ```sh
 node scripts/native-render.mjs \
@@ -97,10 +97,12 @@ This production profile is intentionally strict: the project may contain exactly
 
 The final `driver.mlt-video.av.mux` call is bound to both the visual-mezzanine digest and audio digest. Semwright MLT emits the H.264/AAC MP4, probes the encoded streams and decodes the final master audio back to WAV. Sequencewright then checks both returned artifacts against their canonical size/digest receipts. The source application revision is re-read after production and reported CURRENT or STALE; rendering never silently rebases or rewrites the project.
 
+When `graphRoot` is configured, the same operator transaction also calls the canonical Broker `project.*` routes. It creates a private Project Graph project, registers the exact source Film and native Motion frame manifest plus bounded JSON references to the digest-verified MLT/audio/master artifacts, declares `realizes` and `derived_from` edges, then reads the graph back with query, provenance and impact. The graph files are staged under digest-derived names in the already owner-granted output root and each registration is limited to 4 MiB. Public `project.edge.declare` evidence is deliberately recorded as **declaration only** (`execution_certified=false`); Sequencewright does not reinterpret it as trusted execution provenance or expose a private receipt-admission path.
+
 Projects containing image/video placement or more complex audio remain rejected by this profile rather than being silently flattened. `tests/host/render_e2e.py` is the three-project renderer acceptance lane; its status must be read for the exact source SHA. The product fixture adds deterministic synthetic CI audio only to verify this AV path; lesson and brand continue exercising visual-only production. `src/production.mjs` is the bounded canonical connection used by this operator script and is intentionally not imported by the editor HTTP service.
 
 ## Platform and evidence limits
 
 Linux Host integration is verified by the dedicated CI lane. Windows/macOS native Host support, signed packaging, automatic runtime installation, Platform credentials, remote workers and native rendering controls in the interactive editor are not certified by that lane.
 
-Native renderer measurements are not automatically canonical Graph admission, independent Effect Conformance, final encoded-media validation or human creative approval. Each remains separately reported rather than inferred from a successful process or compiler exit.
+Native renderer measurements are not automatically trusted Project Graph execution receipts, independent Effect Conformance or human creative approval. Canonical Graph registration/declaration and encoded-media validation are separate explicit steps in the current operator route; declarations remain non-certified unless a trusted Semwright host integration admits execution evidence.
