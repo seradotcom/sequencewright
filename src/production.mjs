@@ -9,8 +9,13 @@ import {duration} from './model.mjs';
 import {toFilm} from './projection.mjs';
 const MOTION_COMMANDS=['doctor','composition.inspect','composition.plan','composition.apply','composition.verify','render.plan','render.start','render.status','render.cancel','render.result'].map(name=>'driver.motion-canvas.'+name);
 const MLT_COMMANDS=['frames.encode','sync.probe','av.mux'].map(name=>'driver.mlt-video.'+name);
-const COMMAND_PROVIDER=new Map([...MOTION_COMMANDS.map(command=>[command,'driver:motion-canvas']),...MLT_COMMANDS.map(command=>[command,'driver:mlt-video'])]);
-const COMMANDS=new Set(COMMAND_PROVIDER.keys());
+const GRAPH_COMMANDS=['project.create','project.asset.register','project.asset.inspect','project.asset.provenance','project.query','project.impact','project.revisions','project.edge.declare'];
+const COMMAND_PROVENANCE=new Map([
+ ...MOTION_COMMANDS.map(command=>[command,{provider:'driver:motion-canvas',source:'driver'}]),
+ ...MLT_COMMANDS.map(command=>[command,{provider:'driver:mlt-video',source:'driver'}]),
+ ...GRAPH_COMMANDS.map(command=>[command,{provider:'semwright-core',source:'builtin'}]),
+]);
+const COMMANDS=new Set(COMMAND_PROVENANCE.keys());
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const MAX_OUTPUT=1048576;
 
@@ -24,12 +29,12 @@ function privatePath(path,{directory=false,socket=false}={}){
 export function readConnection(path){
  const file=privatePath(path);need(lstatSync(file).size<16384,'Connection file is too large');
  const config=JSON.parse(readFileSync(file,'utf8'));
- closed(config,['schema','executable','executableSha256','socket','session','outputRoot','maxFrames','resource'],['schema','executable','executableSha256','socket','session','outputRoot','resource']);
+ closed(config,['schema','executable','executableSha256','socket','session','outputRoot','maxFrames','resource','graphRoot'],['schema','executable','executableSha256','socket','session','outputRoot','resource']);
  need(config.schema==='sequencewright/connection/1','Unknown connection schema');
  config.executable=privatePath(config.executable);config.socket=privatePath(config.socket,{socket:true});config.outputRoot=privatePath(config.outputRoot,{directory:true});
  privatePath(dirname(config.session),{directory:true});need(isAbsolute(config.session),'Session must be an absolute owner-selected path');
  need(/^[0-9a-f]{64}$/.test(config.executableSha256)&&sha(readFileSync(config.executable))===config.executableSha256,'Canonical CLI executable digest mismatch','PermissionDenied');
- config.maxFrames=integer(config.maxFrames??1800,1,18000);str(config.resource,160);
+ config.maxFrames=integer(config.maxFrames??1800,1,18000);str(config.resource,160);if(config.graphRoot!==undefined){str(config.graphRoot,64);need(/^[A-Za-z0-9_-]+$/.test(config.graphRoot),'Graph root must be a canonical filesystem grant name');}
  return Object.freeze(config);
 }
 
@@ -53,8 +58,10 @@ export class CanonicalConnection{
     try{
      const value=JSON.parse(Buffer.concat(output).toString('utf8'));
      if(code!==0||value.ok!==true){const error=value.error??{};throw new NativeError(error.code??'BackendFailed',String(error.message??'Canonical command was not completed'),error.outcome_known??!mutation);}
-     const provenance=value.execution?.provenance;const expectedProvider=COMMAND_PROVIDER.get(command);
-     need(provenance?.provider===expectedProvider&&provenance.source==='driver'&&typeof provenance.descriptor_sha256==='string'&&provenance.provider_generation!==null&&provenance.provider_generation!==undefined,'Canonical provider provenance is missing or belongs to the wrong driver','BackendFailed');
+     const provenance=value.execution?.provenance,expected=COMMAND_PROVENANCE.get(command);
+     need(provenance?.provider===expected.provider&&provenance.source===expected.source&&typeof provenance.descriptor_sha256==='string'&&/^[0-9a-f]{64}$/.test(provenance.descriptor_sha256),'Canonical command provenance is missing or belongs to the wrong authority','BackendFailed');
+     if(expected.source==='driver')need(provenance.provider_generation!==null&&provenance.provider_generation!==undefined,'Driver generation is missing from canonical provenance','BackendFailed');
+     else need(provenance.provider_generation===null||provenance.provider_generation===undefined,'Builtin command unexpectedly claimed a dynamic provider generation','BackendFailed');
      resolve({data:value.data,execution:value.execution});
     }catch(error){reject(error instanceof NativeError?error:new NativeError('BackendFailed','Canonical CLI response could not be validated',!mutation));}
    });

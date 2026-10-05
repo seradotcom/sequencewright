@@ -55,6 +55,11 @@ async function main(){
  const callCommand=async(command,parameters,mutation=false)=>{const started=performance.now();const value=await client.execute(command,parameters,{mutation});receipt.calls.push({command,durationMs:Math.round(performance.now()-started),...value});save();return value.data;};
  const call=(name,parameters,mutation=false)=>callCommand('driver.motion-canvas.'+name,parameters,mutation);
  const callMlt=(name,parameters,mutation=false)=>callCommand('driver.mlt-video.'+name,parameters,mutation);
+ const callGraph=(name,parameters,mutation=false)=>callCommand('project.'+name,parameters,mutation);
+ const stageGraphFile=(name,bytes)=>{require(/^[A-Za-z0-9._-]+$/.test(name),'Graph evidence filename must be a plain relative name');const path=join(realpathSync(config.outputRoot),name);if(existsSync(path)){const st=lstatSync(path);require(st.isFile()&&!st.isSymbolicLink()&&st.size===bytes.length,'Existing Graph handoff file differs from the expected immutable artifact');require(sha(readFileSync(path))===sha(bytes),'Existing Graph handoff digest differs from the expected immutable artifact');}else writeFileSync(path,bytes,{flag:'wx',mode:0o600});return {name,sha256:sha(bytes),bytes:bytes.length};};
+ const graphBytes=value=>Buffer.from(JSON.stringify(value));
+ const registerGraphAsset=async(project,file,label,resourceType)=>{require(file.bytes>0&&file.bytes<=4*1024*1024,'Graph evidence file exceeds the canonical registration budget');const registered=await callGraph('asset.register',{root:config.graphRoot,project,label,resource_type:resourceType,path:file.name,max_bytes:file.bytes},true);const id=registered.result?.asset?.id;require(registered.project===project&&registered.graph_schema===1&&/^asset_[0-9a-f]{32}$/.test(id??''),'Project Graph returned an invalid registered asset');require(registered.result.tombstoned===false&&registered.result.latest_revision,'Project Graph did not admit an active evidence revision');return {id,label,resourceType,file,revision:registered.result.latest_revision,knowledge:registered.result.knowledge};};
+ const declareGraphEdge=async(project,from,to,relation)=>{const declared=await callGraph('edge.declare',{root:config.graphRoot,project,from,to,relation},true);require(declared.project===project&&declared.graph_schema===1&&declared.result?.declared===true&&declared.result?.execution_certified===false,'Project Graph did not preserve the declared-only edge boundary');return {from,to,relation,executionCertified:false,snapshot:declared.result.snapshot};};
  let interrupted=false;const interrupt=()=>{interrupted=true;};process.on('SIGINT',interrupt);process.on('SIGTERM',interrupt);
  try{
   const inspection=await call('composition.inspect',{});require(!inspection.low_level_project&&(!inspection.film||inspection.film.id===film.id),'Use an empty renderer workspace or one already bound to this Film');
@@ -94,13 +99,14 @@ async function main(){
   const mezzaninePath=join(root,mezzanineName),mezzanineStat=lstatSync(mezzaninePath);require(mezzanineStat.isFile()&&!mezzanineStat.isSymbolicLink()&&mezzanineStat.size===mezzanine.artifact.bytes,'MLT mezzanine metadata mismatch');
   require(sha(readFileSync(mezzaninePath))===mezzanine.artifact.sha256,'MLT mezzanine digest differs from its canonical receipt');
   receipt.mlt='SUCCEEDED';receipt.mezzanine=mezzanine;save();
+  let master=null;
   if(audioAsset){
    const audioName=`sequencewright-audio-${audioAsset.sha256}.wav`,audioPath=join(root,audioName);
    if(existsSync(audioPath)){const st=lstatSync(audioPath);require(st.isFile()&&!st.isSymbolicLink()&&st.size===audioBytes.length,'Existing audio handoff file does not match the attached asset');require(sha(readFileSync(audioPath))===audioAsset.sha256,'Existing audio handoff digest differs from application provenance');}
    else writeFileSync(audioPath,audioBytes,{flag:'wx',mode:0o600});
    receipt.audio={...receipt.audio,state:'STAGED_FOR_MLT',handoff:{root:'media',path:audioName,sha256:audioAsset.sha256}};receipt.delivery='REQUESTED';save();
    const deliveryName=`sequencewright-${sha(source.version.revision).slice(0,16)}.mp4`;
-   const master=await callMlt('av.mux',{video_root:'output',video_path:mezzanine.artifact.path,video_sha256:mezzanine.artifact.sha256,audio_root:'media',audio_path:audioName,audio_sha256:audioAsset.sha256,width:mezzanine.width,height:mezzanine.height,fps_num:mezzanine.fps_num,fps_den:mezzanine.fps_den,frame_count:frames,sample_rate:48000,channels:2,profile:'h264-aac-mp4',output_path:deliveryName,max_bytes:1073741824},true);
+   master=await callMlt('av.mux',{video_root:'output',video_path:mezzanine.artifact.path,video_sha256:mezzanine.artifact.sha256,audio_root:'media',audio_path:audioName,audio_sha256:audioAsset.sha256,width:mezzanine.width,height:mezzanine.height,fps_num:mezzanine.fps_num,fps_den:mezzanine.fps_den,frame_count:frames,sample_rate:48000,channels:2,profile:'h264-aac-mp4',output_path:deliveryName,max_bytes:1073741824},true);
    require(master.profile==='h264-aac-mp4'&&master.frame_count===frames&&master.fps_num===mezzanine.fps_num&&master.fps_den===mezzanine.fps_den,'Final AV master timing differs from the verified mezzanine');
    require(master.video_sha256===mezzanine.artifact.sha256&&master.audio_sha256===audioAsset.sha256,'Final AV master is not digest-bound to the selected video and audio');
    require(master.sample_rate===48000&&master.channels===2&&master.media?.video===true&&master.media?.audio===true,'Final AV master failed the certified media profile');
@@ -109,8 +115,39 @@ async function main(){
    for(const [label,artifactMeta] of [['final master',master.artifact],['decoded final audio',master.decoded_audio]]){const path=join(root,artifactMeta.path),st=lstatSync(path);require(st.isFile()&&!st.isSymbolicLink()&&st.size===artifactMeta.bytes,`${label} metadata mismatch`);require(sha(readFileSync(path))===artifactMeta.sha256,`${label} digest differs from its canonical receipt`);}
    receipt.audio={...receipt.audio,state:'VERIFIED_IN_FINAL_MASTER',decoded:{sha256:master.decoded_audio.sha256,sampleFrames:master.decoded_audio_sample_frames}};receipt.delivery='SUCCEEDED';receipt.master=master;save();
   }
+  if(config.graphRoot){
+   receipt.graph='REQUESTED';save();
+   const created=await callGraph('create',{root:config.graphRoot},true);require(created.graph_schema===1&&/^prj_[0-9a-f]{32}$/.test(created.project??'')&&created.result?.created===true,'Canonical Project Graph project creation failed');
+   const project=created.project,graphAssets=[],relations=[];
+   const sourceFile=stageGraphFile(`sequencewright-source-film-${receipt.sourceFilmSha256}.json`,graphBytes(sourceFilm));
+   const sourceGraph=await registerGraphAsset(project,sourceFile,'Sequencewright source Film','sequencewright.film+json');graphAssets.push(sourceGraph);
+   const manifestFile=stageGraphFile(`sequencewright-motion-manifest-${artifact.manifest_sha256}.json`,bytes);
+   const renderGraph=await registerGraphAsset(project,manifestFile,'Motion Canvas native frame manifest','semwright.motion-canvas.artifact-manifest+json');graphAssets.push(renderGraph);
+   relations.push(await declareGraphEdge(project,renderGraph.id,sourceGraph.id,'realizes'));
+   const mezzanineReference={schema:'sequencewright/artifact-reference/1',kind:'mlt-ffv1-mezzanine',sourceManifestSha256:artifact.manifest_sha256,artifact:mezzanine.artifact,media:mezzanine.media,width:mezzanine.width,height:mezzanine.height,fps:{num:mezzanine.fps_num,den:mezzanine.fps_den},frameCount:mezzanine.frame_count};
+   const mezzanineFile=stageGraphFile(`sequencewright-mezzanine-${mezzanine.artifact.sha256}.json`,graphBytes(mezzanineReference));
+   const mezzanineGraph=await registerGraphAsset(project,mezzanineFile,'MLT verified mezzanine reference','sequencewright.mlt-mezzanine-ref+json');graphAssets.push(mezzanineGraph);
+   relations.push(await declareGraphEdge(project,mezzanineGraph.id,renderGraph.id,'derived_from'));
+   let audioGraph=null,masterGraph=null;
+   if(audioAsset){
+    const audioReference={schema:'sequencewright/artifact-reference/1',kind:'application-audio-input',assetId:audioAsset.id,sha256:audioAsset.sha256,bytes:audioAsset.bytes,mime:audioAsset.mime,media:audioMedia,sourceVersion:source.version};
+    const audioFile=stageGraphFile(`sequencewright-audio-${audioAsset.sha256}.json`,graphBytes(audioReference));
+    audioGraph=await registerGraphAsset(project,audioFile,'Application audio input reference','sequencewright.audio-input-ref+json');graphAssets.push(audioGraph);
+    const masterReference={schema:'sequencewright/artifact-reference/1',kind:'mlt-h264-aac-master',artifact:master.artifact,decodedAudio:master.decoded_audio,videoSha256:master.video_sha256,audioSha256:master.audio_sha256,profile:master.profile,media:master.media,frameCount:master.frame_count,fps:{num:master.fps_num,den:master.fps_den},sampleRate:master.sample_rate,channels:master.channels};
+    const masterFile=stageGraphFile(`sequencewright-master-${master.artifact.sha256}.json`,graphBytes(masterReference));
+    masterGraph=await registerGraphAsset(project,masterFile,'Final verified AV master reference','sequencewright.av-master-ref+json');graphAssets.push(masterGraph);
+    relations.push(await declareGraphEdge(project,masterGraph.id,mezzanineGraph.id,'derived_from'));
+    relations.push(await declareGraphEdge(project,masterGraph.id,audioGraph.id,'derived_from'));
+   }
+   const queried=await callGraph('query',{root:config.graphRoot,project,limit:32});require(queried.project===project&&queried.graph_schema===1&&Array.isArray(queried.result?.items)&&queried.result.items.length===graphAssets.length,'Project Graph query did not return the admitted evidence set');
+   const provenance=await callGraph('asset.provenance',{root:config.graphRoot,project,asset:sourceGraph.id,limit:32});require(provenance.result?.asset?.asset?.id===sourceGraph.id,'Project Graph provenance did not resolve the source Film');
+   const impact=await callGraph('impact',{root:config.graphRoot,project,asset:sourceGraph.id,budget:{nodes:64,edges:128,depth:16,results:32}});
+   const possible=new Set((impact.result?.possible??[]).map(item=>item.asset));for(const asset of [renderGraph,mezzanineGraph,masterGraph].filter(Boolean))require(possible.has(asset.id),'Declared downstream evidence is missing from canonical Graph impact');
+   receipt.graph={state:'ADMITTED_DECLARATIONS',root:config.graphRoot,project,executionCertified:false,assets:graphAssets,relations,query:{snapshot:queried.result.snapshot,count:queried.result.items.length},sourceProvenance:{snapshot:provenance.result.snapshot,possibleDerivatives:provenance.result.possible_derivatives,unknownFrontier:provenance.result.unknown_frontier},sourceImpact:{snapshot:impact.result.snapshot,possible:impact.result.possible,unknownFrontier:impact.result.unknown_frontier,truncated:impact.result.truncated}};
+   save();
+  }else receipt.graph='NOT_CONFIGURED';
   receipt.sourceState=store.current(options.resource).version.revision===source.version.revision?'CURRENT_APPLICATION_REVISION':'STALE_APPLICATION_REVISION';
-  receipt.completed=true;save();console.log(JSON.stringify({output,sourceVersion:source.version,frames,render:receipt.render,mlt:receipt.mlt,delivery:receipt.delivery,audio:receipt.audio.state,nativeMeasurement:verified.report.support_level,sourceState:receipt.sourceState,effects:receipt.effects,graph:receipt.graph}));
+  receipt.completed=true;save();console.log(JSON.stringify({output,sourceVersion:source.version,frames,render:receipt.render,mlt:receipt.mlt,delivery:receipt.delivery,audio:receipt.audio.state,nativeMeasurement:verified.report.support_level,sourceState:receipt.sourceState,effects:receipt.effects,graph:typeof receipt.graph==='string'?receipt.graph:receipt.graph.state}));
  }catch(error){receipt.completed=false;receipt.error=error.message;save();throw error;}
  finally{store.close();process.off('SIGINT',interrupt);process.off('SIGTERM',interrupt);}
 }
